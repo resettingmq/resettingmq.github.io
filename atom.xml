@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://resettingmq.github.io/"/>
-  <updated>2017-04-23T08:57:20.669Z</updated>
+  <updated>2017-04-23T09:50:13.702Z</updated>
   <id>https://resettingmq.github.io/</id>
   
   <author>
@@ -19,24 +19,16 @@
     <title>coroutine学习笔记</title>
     <link href="https://resettingmq.github.io/2017/04/23/coroutine%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/"/>
     <id>https://resettingmq.github.io/2017/04/23/coroutine学习笔记/</id>
-    <published>2017-04-23T07:30:33.000Z</published>
-    <updated>2017-04-23T08:57:20.669Z</updated>
+    <published>2017-04-23T09:33:51.000Z</published>
+    <updated>2017-04-23T09:50:13.702Z</updated>
     
     <content type="html"><![CDATA[<h2 id="前面的话"><a href="#前面的话" class="headerlink" title="前面的话"></a>前面的话</h2><p>这个星期在研究Scrapy media Pipeline源码 (<a href="https://github.com/scrapy/scrapy/blob/master/scrapy/pipelines/media.py" target="_blank" rel="external">scrapy.pipelines.images</a>)的时候，遇到文档中一直被跳过阅读的Deferred对象，于是就打算尝试去理解一下Twisted。但由于基础不过硬，在基本的事件驱动模型上都没有理解透彻，所以打算从异步编程的基础开始学习。</p>
 <p>之前在廖雪峰大师的博客中看了一遍异步IO相关的<a href="http://www.liaoxuefeng.com/wiki/0014316089557264a6b348958f449949df42a6d3a2e542c000/00143208573480558080fa77514407cb23834c78c6c7309000" target="_blank" rel="external">教程</a>,了解到了coroutine（协程）这样一个概念，这篇文章中打算记录一下学习过程中的心得。</p>
 <p>是不是很晕？我就这样很容易的从Scrapy源码被带到了coroutine，一向如此，看到不了解的东西就像去深究其中究竟，导致战线拉太长，效率不高，简单的东西没精通掌握，复杂的东西又没透彻学会。以后要学会适时忽略细节，在掌握整体之后再来深究部分。</p>
-<h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>协程的定义类似于普通函数的定义：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">coroutine_name</span><span class="params">()</span>:</span></div><div class="line">    <span class="comment"># defines your coroutine here.</span></div></pre></td></tr></table></figure></p>
-<p>但协程的执行过程与普通函数不同。</p>
-<p>普通函数的执行总是有一个入口，一次返回；但是协程的执行可以在其内部中断，由自己控制转到其它协程的代码中执行，之后在一定的时间返回到这个协程中继续执行。</p>
-<p>多个协程是在一个进程中运行的。</p>
-<h2 id="同其他常用异步技术的比较"><a href="#同其他常用异步技术的比较" class="headerlink" title="同其他常用异步技术的比较"></a>同其他常用异步技术的比较</h2><p>协程的这一个特点与多进程/多线程相似，但是不同的是多进程/多线程程序在运行过程中，进程/线程之间的切换是有OS底层来进行控制的（例如时间中断）；而协程切换的时机以及切换的目标是有程序自身进行控制的。</p>
+<h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><h2 id="同其他常用异步技术的比较"><a href="#同其他常用异步技术的比较" class="headerlink" title="同其他常用异步技术的比较"></a>同其他常用异步技术的比较</h2><p>协程的这一个特点与多进程/多线程相似，但是不同的是多进程/多线程程序在运行过程中，进程/线程之间的切换是有OS底层来进行控制的（例如时间中断）；而协程切换的时机以及切换的目标是有程序自身进行控制的。</p>
 <p>由于多个协程运行与一个进程之中，<br>因此，不会存在同时写变量的冲突，不需要像多线程那样对共享资源进行加锁。</p>
 <p>同时协程也没有多进程/多线程程序的切换开销，执行效率更高。</p>
-<h2 id="Python对协程的支持"><a href="#Python对协程的支持" class="headerlink" title="Python对协程的支持"></a>Python对协程的支持</h2><p>由于协程的特点，要实现协程，很重要的一个方面就是context的保存和切换。</p>
-<p>这一个特点跟用yield语句实现的生成器很像，只不过这个时候是在调用生成器的程序与生成器内部程序之间相互跳转交错执行。</p>
-<p>实际上，python正是用yield语法来编写协程的。</p>
-<h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p><a href="http://www.liaoxuefeng.com/wiki/0014316089557264a6b348958f449949df42a6d3a2e542c000/001432090171191d05dae6e129940518d1d6cf6eeaaa969000" target="_blank" rel="external">协程 - 廖雪峰的官方网站</a><br><a href="http://www.tuicool.com/articles/jeqMjq3" target="_blank" rel="external">从0到1，Python异步编程的演进之路</a></p>
-]]></content>
+<h2 id="Python对协程的支持"><a href="#Python对协程的支持" class="headerlink" title="Python对协程的支持"></a>Python对协程的支持</h2>]]></content>
     
     <summary type="html">
     
