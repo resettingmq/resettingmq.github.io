@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://resettingmq.github.io/"/>
-  <updated>2017-04-23T09:50:13.702Z</updated>
+  <updated>2017-05-21T15:12:17.067Z</updated>
   <id>https://resettingmq.github.io/</id>
   
   <author>
@@ -16,19 +16,305 @@
   <generator uri="http://hexo.io/">Hexo</generator>
   
   <entry>
+    <title>flask_web_开发_测试驱动开发</title>
+    <link href="https://resettingmq.github.io/2017/05/21/flask-web-%E5%BC%80%E5%8F%91-%E6%B5%8B%E8%AF%95%E9%A9%B1%E5%8A%A8%E5%BC%80%E5%8F%91/"/>
+    <id>https://resettingmq.github.io/2017/05/21/flask-web-开发-测试驱动开发/</id>
+    <published>2017-05-21T14:27:25.000Z</published>
+    <updated>2017-05-21T15:12:17.067Z</updated>
+    
+    <content type="html"><![CDATA[<p>开始看Miguel Grinberg所著的Flask Web开发，试着利用测试驱动的方式把书中的例子自己实现一遍，在这里记录一下在这个过程中自己的一些心得体会。</p>
+<h2 id="功能模块-vs-逻辑模块"><a href="#功能模块-vs-逻辑模块" class="headerlink" title="功能模块 vs. 逻辑模块"></a>功能模块 vs. 逻辑模块</h2><p>首先遇到的选择是<code>TestCase</code>的划分。例如在用户认证的模块中，需要建立请求url<code>url rule</code>到视图函数<code>view_func</code>映射关系的测试。</p>
+<p>如果把对于所有逻辑模块（例如用户认证模块等）的映射测试放到一个单独的<code>TestCase</code>中，这样就可以方便的在这个<code>TestCase</code>中加入对映射关系测试需要用到的辅助函数，便于代码重用和调试。</p>
+<p>如果把所有的某个逻辑模块的url映射测试放到各模块对应的<code>TestCase</code>中，方便于逻辑模块的增删，不需要修改多个测试文件。在这种方式下，可以将url关系测试的辅助函数放入<code>TestCaseMixin</code>中，这样也能达到代码重用的目的，而不需要在各逻辑模块的测试用分别定义这些辅助函数。</p>
+<h2 id="TestCase-Mixin"><a href="#TestCase-Mixin" class="headerlink" title="TestCase Mixin"></a>TestCase Mixin</h2><p>在各逻辑模块的<code>TestCase</code>中，包含着需要相同的测试逻辑。例如，对表单响应中应该包含<code>csrf_token</code>的测试。对于这些测试，也可以提取到<code>Mixin</code>中。</p>
+<h2 id="注意点"><a href="#注意点" class="headerlink" title="注意点"></a>注意点</h2><ol>
+<li>在测试用例中如果需要用到<code>url_for()</code>，则需要保证由活动的<code>app_context</code>，同时还需要设置<code>app.config</code>的<code>SERVER_NAME</code>的配置值。</li>
+</ol>
+<p>这是因为<code>url_for()</code>需要用到<code>MapAdapter</code>对象来匹配<code>url rule</code>与<code>endpoint</code>之间的映射关系。这个对象是在<code>ApplicationContext</code>或者<code>RequestContext</code>初始化的时候被建立的，所以至少需要保证有活动的<code>app_context</code>。</p>
+<p>同时，<code>MapAdapter</code>对象建立至少需要<code>SERVER_NAME</code>参数（或者<code>environ</code>对象），所以在测试初始化的时候，需要配置<code>app.config</code>，使之正确设置<code>SERVER_NAME</code>的值。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;开始看Miguel Grinberg所著的Flask Web开发，试着利用测试驱动的方式把书中的例子自己实现一遍，在这里记录一下在这个过程中自己的一些心得体会。&lt;/p&gt;
+&lt;h2 id=&quot;功能模块-vs-逻辑模块&quot;&gt;&lt;a href=&quot;#功能模块-vs-逻辑模块&quot; class=
+    
+    </summary>
+    
+      <category term="Flask" scheme="https://resettingmq.github.io/categories/Flask/"/>
+    
+    
+      <category term="Flask" scheme="https://resettingmq.github.io/tags/Flask/"/>
+    
+      <category term="Python" scheme="https://resettingmq.github.io/tags/Python/"/>
+    
+      <category term="TDD" scheme="https://resettingmq.github.io/tags/TDD/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>Werkzeug_Thread_Local学习</title>
+    <link href="https://resettingmq.github.io/2017/04/30/Werkzeug-Thread-Local%E5%AD%A6%E4%B9%A0/"/>
+    <id>https://resettingmq.github.io/2017/04/30/Werkzeug-Thread-Local学习/</id>
+    <published>2017-04-30T10:55:46.000Z</published>
+    <updated>2017-04-30T18:18:53.392Z</updated>
+    
+    <content type="html"><![CDATA[<h2 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h2><p>在学习<code>Flask</code>的过程中，经常遇到<code>context</code>的这个概念。通过<code>app context</code>和<code>request context</code>，可以使不同请求之间的数据得到隔离。开发的过程中，只知道怎么使用这两个<code>context</code>，却不理解它们背后的运行机制以及使用的过程中的限制和注意点。借助这几天对<code>Flask</code>以及<code>Werkzeug</code>源码的初步阅读，希望能够更深入的理解它们。</p>
+<p>先看一下<a href="http://werkzeug.pocoo.org/docs/0.11/local/#werkzeug.local.LocalStack" target="_blank" rel="external"><code>Werkzeug official document</code></a>中的一些描述：</p>
+<blockquote>
+<p><cite> The Python standard library has a concept called “thread locals” (or thread-local data). A thread local is a global object in which you can put stuff in and get back later in a thread-safe and thread-specific way. That means that whenever you set or get a value on a thread local object, the thread local object checks in which thread you are and retrieves the value corresponding to your thread (if one exists). So, you won’t accidentally get another thread’s data. </cite></p>
+</blockquote>
+<p>首先，通过<code>Python</code>内建的<code>Thread Local</code>，可以实现不同进程数据之间的隔离。这个可以满足Web Server对每个请求生成一个<code>Thread</code>进行处理的场景。而在一些使用其它并发机制的Web Server上，仅仅使用<code>Python Thread Local</code>显然并不能满足需求。</p>
+<blockquote>
+<p><cite> This approach, however, has a few disadvantages. For example, besides threads, there are other types of concurrency in Python. A very popular one is greenlets. Also, whether every request gets its own thread is not guaranteed in WSGI. It could be that a request is reusing a thread from a previous request, and hence data is left over in the thread local object. </cite></p>
+</blockquote>
+<p>于是，<code>Werkzeug</code>就使用了自己的<code>Local</code>机制来替换<code>Python Thread Local</code>，这就是<a href="https://github.com/pallets/werkzeug/blob/master/werkzeug/local.py" target="_blank" rel="external"><code>werkzeug.local.Local</code></a>类。</p>
+<h2 id="对werkzeug-local-Local类的分析"><a href="#对werkzeug-local-Local类的分析" class="headerlink" title="对werkzeug.local.Local类的分析"></a>对<code>werkzeug.local.Local</code>类的分析</h2><blockquote>
+<p><em>以下的代码省略了部分不相关代码以及注释，以方便阅读。</em></p>
+</blockquote>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div></pre></td><td class="code"><pre><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">Local</span><span class="params">(object)</span>:</span></div><div class="line">    __slots__ = (<span class="string">'__storage__'</span>, <span class="string">'__ident_func__'</span>)</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self)</span>:</span></div><div class="line">        object.__setattr__(self, <span class="string">'__storage__'</span>, &#123;&#125;)</div><div class="line">        object.__setattr__(self, <span class="string">'__ident_func__'</span>, get_ident)</div><div class="line">    </div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__getattr__</span><span class="params">(self, name)</span>:</span></div><div class="line">        <span class="keyword">try</span>:</div><div class="line">            <span class="keyword">return</span> self.__storage__[self.__ident_func__][name]</div><div class="line">        <span class="keyword">except</span> KeyError:</div><div class="line">            <span class="keyword">raise</span> AttributeError(name)</div><div class="line">        </div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__setattr__</span><span class="params">(self, name, value)</span>:</span></div><div class="line">        ident = self.__ident_func__()</div><div class="line">        storage = self.__storage__</div><div class="line">        <span class="keyword">try</span>:</div><div class="line">            storage[ident][name] = value</div><div class="line">        <span class="keyword">except</span> KeyError:</div><div class="line">            storage[ident] = &#123;name: value&#125;</div></pre></td></tr></table></figure>
+<p><code>Local</code>对象中只含有两个属性: <code>__storage__</code>和<code>__ident_func__</code>，其中：</p>
+<ul>
+<li><code>__ident_func__</code>是用来获取当前<code>context</code>的全局唯一标识符，在本文下面会提到；</li>
+<li><code>__storage__</code>用来存储<code>context</code>数据，是一个{<code>context</code>标识符: <code>context</code>数据}形式的字典；其中<code>context</code>数据是一个{key: value}形式的字典。</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">try</span>:</div><div class="line">    <span class="keyword">from</span> greenlet <span class="keyword">import</span> getcurrent <span class="keyword">as</span> get_ident</div><div class="line"><span class="keyword">except</span> ImportError:</div><div class="line">    <span class="keyword">try</span>:</div><div class="line">        <span class="keyword">from</span> thread <span class="keyword">import</span> get_ident</div><div class="line">    <span class="keyword">except</span> ImportError:</div><div class="line">        <span class="keyword">from</span> _thread <span class="keyword">import</span> get_ident</div></pre></td></tr></table></figure>
+<p>这段代码先试图从<code>greenlet</code>库中导入<a href="http://greenlet.readthedocs.io/en/latest/index.html?highlight=getcurrent" target="_blank" rel="external"><code>getcurrent</code></a>函数。如果导入失败（即项目中没有使用基于<code>greenlet</code>库的服务），则从<code>Python thread</code>或者<code>Python _thread</code>模块中导入<code>get_ident</code>函数。</p>
+<p>这些函数可以得到当前<code>greenlet</code>或是<code>thread</code>的全局唯一标识符。</p>
+<p>由此也可以看出，<code>Werkzeug</code>的<code>Thread Local</code>仅支持基于<code>thread</code>或<code>greenlet</code>分发请求的Web Server。这有可能是一个坑，如果<code>Web Server</code>使用在这之外的并发机制来分发请求，那么不同请求的数据就会耦合在一起。这需要在了解个<code>WSGI Server</code>使用的并发技术之后才能更深入的了解。</p>
+<blockquote>
+<p><em>todo:uWSGI/Gevent/Tornado/greenlet</em></p>
+</blockquote>
+<h2 id="对werkzeug-local-LocalStack的分析"><a href="#对werkzeug-local-LocalStack的分析" class="headerlink" title="对werkzeug.local.LocalStack的分析"></a>对<code>werkzeug.local.LocalStack</code>的分析</h2><figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div></pre></td><td class="code"><pre><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">LocalStack</span><span class="params">(object)</span>:</span></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self)</span>:</span></div><div class="line">        self._local = Local()</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">push</span><span class="params">(self, obj)</span>:</span></div><div class="line">        rv = getattr(self._local, <span class="string">'stack'</span>, <span class="keyword">None</span>)</div><div class="line">        <span class="keyword">if</span> rv <span class="keyword">is</span> <span class="keyword">None</span>:</div><div class="line">            self._local.stack = rv = []</div><div class="line">        rv.append(obj)</div><div class="line">        <span class="keyword">return</span> rv</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">pop</span><span class="params">(self)</span>:</span></div><div class="line">        stack = getattr(self._local, <span class="string">'stack'</span>, <span class="keyword">None</span>)</div><div class="line">        <span class="keyword">if</span> stack <span class="keyword">is</span> <span class="keyword">None</span>:</div><div class="line">            <span class="keyword">return</span> <span class="keyword">None</span></div><div class="line">        <span class="keyword">if</span> len(stack) == <span class="number">1</span>:</div><div class="line">            release_local(self._local)</div><div class="line">            <span class="keyword">return</span> stack[<span class="number">-1</span>]</div><div class="line">        <span class="keyword">return</span> stack.pop()</div></pre></td></tr></table></figure>
+<p><code>LocalStack</code>内部维护一个<code>Local</code>实例，该实例对每个<code>context</code>有一个<code>stack</code>数组，因此这个栈结构也是对不同<code>context</code>隔离的。</p>
+<p><code>LocalStack.pop()</code>和<code>LocalStack.push()</code>可以在当前<code>context</code>下添加对象。</p>
+<p>这个栈结构是通过<code>Python List</code>来实现的。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line">...</div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__call__</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="function"><span class="keyword">def</span> <span class="title">_lookup</span><span class="params">()</span>:</span></div><div class="line">            rv = self.top</div><div class="line">            <span class="keyword">if</span> rv <span class="keyword">is</span> <span class="keyword">None</span>:</div><div class="line">                <span class="keyword">raise</span> RuntimeError(<span class="string">'object unbound'</span>)</div><div class="line">            <span class="keyword">return</span> rv</div><div class="line">        <span class="keyword">return</span> LocalProxy(_lookup)</div></pre></td></tr></table></figure>
+<p>同时，<code>LocalStack</code>还定义了<code>__call__</code>魔法方法。调用<code>LocalStack</code>的对象实例，会返回一个<code>LocalProxy</code>对象，该对象代表的是对应<code>LocalStack</code>的栈顶元素;如果栈为空（这种情况下<code>LocalStack._local.stack</code>属性不存在）就会抛出<code>RuntimeError</code>。</p>
+<h2 id="werkzeug-local-LocalManager"><a href="#werkzeug-local-LocalManager" class="headerlink" title="werkzeug.local.LocalManager"></a><code>werkzeug.local.LocalManager</code></h2><p><code>LocalManager.locals</code>属性是<code>Local</code>对象列表。<br>在<code>LocalManager</code>对象初始化时，可以指定<code>ident_func</code>关键字参数，该参数会将初始化关键字参数<code>locals</code>列表中各<code>Local</code>对象的<code>__ident_func__</code>属性的值更改为<code>ident_func</code>指定的函数。</p>
+<p><code>LocalManager</code>的作用在于，可以通过<code>LocalManager.make_middleware</code>或<code>LocalManager.middleware</code>修饰一个<code>callable</code>对象，在该<code>callable</code>对象上调用<code>close</code>方法的时候，会自动调用<code>LocalManager.locals</code>中管理的<code>Local</code>对象的<code>__release_local__</code>函数，从而清除<code>Local</code>对象在当前<code>context</code>中的数据。</p>
+<h2 id="werkzeug-local-LocalProxy"><a href="#werkzeug-local-LocalProxy" class="headerlink" title="werkzeug.local.LocalProxy"></a><code>werkzeug.local.LocalProxy</code></h2><p><code>LocalProxy</code>对象是一个代理对象。</p>
+<p>如果指定初始化参数指定一个<code>Local</code>对象和一个属性名，则<code>LocalProxy</code>对象代理的对象为<code>Local.attribute_name</code>；如果初始化参数为一个函数，则<code>LocalProxy</code>对象代理的对象为该函数的返回值。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h2 id=&quot;Preface&quot;&gt;&lt;a href=&quot;#Preface&quot; class=&quot;headerlink&quot; title=&quot;Preface&quot;&gt;&lt;/a&gt;Preface&lt;/h2&gt;&lt;p&gt;在学习&lt;code&gt;Flask&lt;/code&gt;的过程中，经常遇到&lt;code&gt;context&lt;/code&gt;
+    
+    </summary>
+    
+      <category term="Flask" scheme="https://resettingmq.github.io/categories/Flask/"/>
+    
+    
+      <category term="Flask" scheme="https://resettingmq.github.io/tags/Flask/"/>
+    
+      <category term="Werkzeug" scheme="https://resettingmq.github.io/tags/Werkzeug/"/>
+    
+      <category term="Python" scheme="https://resettingmq.github.io/tags/Python/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>flask分析_WSGI程序调用</title>
+    <link href="https://resettingmq.github.io/2017/04/29/flask%E5%88%86%E6%9E%90-WSGI%E7%A8%8B%E5%BA%8F%E8%B0%83%E7%94%A8/"/>
+    <id>https://resettingmq.github.io/2017/04/29/flask分析-WSGI程序调用/</id>
+    <published>2017-04-29T14:36:23.000Z</published>
+    <updated>2017-05-04T04:38:06.600Z</updated>
+    
+    <content type="html"><![CDATA[<h2 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h2><p>根据WSGI协议，<code>WSGI application</code>向<code>WSGI Server</code>提供一个可调用对象。当<code>WSGI Server</code>分发请求时，调用该对象，并将当前环境参数<code>environ</code>以及一个<code>callback</code>函数<code>start_response</code>传入该可调用对象。</p>
+<h2 id="Flask-Application调用入口"><a href="#Flask-Application调用入口" class="headerlink" title="Flask Application调用入口"></a><code>Flask Application</code>调用入口</h2><p>先从最简单的<code>WSGI application</code>入手：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">from</span> flask</div><div class="line"></div><div class="line">app = flask.Flask(__name__)</div><div class="line"></div><div class="line"><span class="meta">@app.route('/')</span></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">index</span><span class="params">()</span>:</span></div><div class="line">    <span class="keyword">return</span> <span class="string">'Hello, world!'</span></div><div class="line"></div><div class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</div><div class="line">    app.run(debug=<span class="keyword">True</span>)</div></pre></td></tr></table></figure>
+<p>在这段代码中，<code>app.run()</code>启动了<code>werkzeug</code>内建的一个简单的<code>WSGI Server</code>。启动这个<code>WSGI Server</code>的时候，将<code>Flask</code>的实例<code>app</code>作为可调用对象传入了<code>WSGI Server</code>。所以，要分析<code>WSGI</code>程序的调用过程，重点在于<code>WSGI Server</code>将请求分发到这个<code>WSGI application</code>的时候，<code>Flask</code>的实例<code>app</code>是如何被调用的。</p>
+<p>先看<code>Flask.__call__()</code>的代码:</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># flask/app.py</span></div><div class="line"></div><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">Flask</span><span class="params">(_PackageBoundObject)</span>:</span></div><div class="line">    <span class="comment"># ...</span></div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__call__</span><span class="params">(self, environ, start_response)</span>:</span></div><div class="line">        <span class="keyword">return</span> self.self.wsgi_app(environ, start_response)</div><div class="line"></div><div class="line">    <span class="comment"># ...</span></div></pre></td></tr></table></figure>
+<p>所以，在<code>app</code>对象被调用的时候，实际上调用了<code>app.wsgi_app(environ, start_response)</code>，也即，在<code>WSGI Server</code>分发处理请求时调用的是<code>app.wsgi_app(environ, start_response)</code>。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># flask/app.py</span></div><div class="line"></div><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">Flask</span><span class="params">(_PackageBoundObject)</span>:</span></div><div class="line">    <span class="comment"># ...</span></div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">wsgi_app</span><span class="params">(self, environ, start_response)</span>:</span></div></pre></td></tr></table></figure>
+<h2 id="Flask-wsgi-app-的基本执行流程"><a href="#Flask-wsgi-app-的基本执行流程" class="headerlink" title="Flask.wsgi_app()的基本执行流程"></a><code>Flask.wsgi_app()</code>的基本执行流程</h2><p>在<code>Flask</code>实例调用<code>wsgi_app()</code>的过程，主要分为一下几个步骤（暂时先忽略错误处理部分）：</p>
+<ol>
+<li>对传入的<code>environ</code>环境变量生成<code>RequestContext</code>，并<code>push</code>到<code>_request_ctx_stack</code>中；</li>
+<li>分发请求，获取<code>Response</code>响应对象；</li>
+<li>返回响应，并调用<code>WSGI Server</code>传入的<code>callback</code>:<code>start_response</code>；</li>
+<li>从<code>_request_ctx_stack</code>中弹出当前<code>request_context</code>。</li>
+</ol>
+<p>下面从这几个部分进行分析：</p>
+<h3 id="1-请求上下文RequestContext对象的生成"><a href="#1-请求上下文RequestContext对象的生成" class="headerlink" title="1. 请求上下文RequestContext对象的生成"></a>1. 请求上下文<code>RequestContext</code>对象的生成</h3><p><code>Flask.request_context(environ)</code>函数生成并返回一个请求上下文对象，这个对象是<code>flask.ctx.RequestContext</code>的实例。</p>
+<blockquote>
+<p><em>在命令行进行测试的过程中，也可以通过`Flask.test_request_context(</em>args, <em>*kwargs)`函数来得到一个请求上下文。</em></p>
+</blockquote>
+<p>请求上下文对象包括了</p>
+<h3 id="2-请求分发"><a href="#2-请求分发" class="headerlink" title="2. 请求分发"></a>2. 请求分发</h3><p>请求分发包括以下顺序进行：</p>
+<ol>
+<li>执行用<code>before_first_request()</code>注册的函数（如果是该程序的第一次请求）；</li>
+<li>执行用<code>url_value_processor()</code>注册的函数；</li>
+<li>执行用<code>before_request()</code>注册的函数；如果其中有函数返回<code>non-None</code>的值，则直接跳到第5步；</li>
+<li>分发请求，执行该请求<code>URL</code>对应的<code>view function</code></li>
+<li>根据步骤3或步骤4的结果生成<code>response</code>对象</li>
+<li>执行用<code>after_request()</code>注册的函数，处理并返回上一步生成的<code>response</code>对象，在这个过程中，可以修改<code>response</code>对象或者替换为全新的<code>response</code>对象；</li>
+<li>处理<code>session</code>（如果使用<code>session</code>）</li>
+</ol>
+<p>其中，步骤1-3中的函数，先执行使用<code>Flask</code>实例对象装饰器注册的函数，再执行使用<code>Blueprint</code>实例对象装饰器注册的函数；用同一个装饰器注册的函数，按照它们在代码中先后的顺序执行。<br>而步骤6中的函数执行顺序则相反：先执行使用<code>Blueprint</code>实例对象装饰器注册的函数，再执行使用<code>Flask</code>实例对象装饰器注册的函数；用同一个装饰器注册的函数，按照它们再代码中先后的顺序相反的顺序执行。</p>
+<h3 id="3-返回响应"><a href="#3-返回响应" class="headerlink" title="3. 返回响应"></a>3. 返回响应</h3>]]></content>
+    
+    <summary type="html">
+    
+      &lt;h2 id=&quot;Preface&quot;&gt;&lt;a href=&quot;#Preface&quot; class=&quot;headerlink&quot; title=&quot;Preface&quot;&gt;&lt;/a&gt;Preface&lt;/h2&gt;&lt;p&gt;根据WSGI协议，&lt;code&gt;WSGI application&lt;/code&gt;向&lt;code&gt;WSGI 
+    
+    </summary>
+    
+      <category term="flask" scheme="https://resettingmq.github.io/categories/flask/"/>
+    
+    
+      <category term="python" scheme="https://resettingmq.github.io/tags/python/"/>
+    
+      <category term="flask" scheme="https://resettingmq.github.io/tags/flask/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>flask分析_routing</title>
+    <link href="https://resettingmq.github.io/2017/04/27/flask%E5%88%86%E6%9E%90-routing/"/>
+    <id>https://resettingmq.github.io/2017/04/27/flask分析-routing/</id>
+    <published>2017-04-27T04:34:09.000Z</published>
+    <updated>2017-04-27T04:35:31.441Z</updated>
+    
+    <summary type="html">
+    
+    </summary>
+    
+      <category term="flask" scheme="https://resettingmq.github.io/categories/flask/"/>
+    
+    
+      <category term="python" scheme="https://resettingmq.github.io/tags/python/"/>
+    
+      <category term="flask" scheme="https://resettingmq.github.io/tags/flask/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>flask分析_import_name</title>
+    <link href="https://resettingmq.github.io/2017/04/27/flask%E5%88%86%E6%9E%90-import-name/"/>
+    <id>https://resettingmq.github.io/2017/04/27/flask分析-import-name/</id>
+    <published>2017-04-27T01:59:23.000Z</published>
+    <updated>2017-04-27T04:35:07.715Z</updated>
+    
+    <content type="html"><![CDATA[<h2 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h2><p>According to <a href="http://flask.pocoo.org/docs/0.12/quickstart/#quickstart" target="_blank" rel="external">Flask Quickstart</a>:</p>
+<blockquote>
+<p><cite> This is needed so that Flask knows where to look for templates, static files, and so on. </cite></p>
+</blockquote>
+<p>And <a href="http://flask.pocoo.org/docs/0.12/api/#flask.Flask" target="_blank" rel="external">Flask API definition</a>:</p>
+<blockquote>
+<p><cite> The idea of the first parameter is to give Flask an idea of what belongs to your application. This name is used to find resources on the files system, can be used by extensions to improve debugging information and a lot more. </cite></p>
+</blockquote>
+<p>Flask实例根据<code>import_name</code>确定<code>templates</code>，<code>static files</code>等组件在文件系统中的查找路径。</p>
+<h2 id="分析"><a href="#分析" class="headerlink" title="分析"></a>分析</h2><figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># flask/app.py</span></div><div class="line"></div><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">Flask</span><span class="params">(_PackageBoundObject)</span>:</span></div><div class="line">    <span class="comment"># ... </span></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, static_folder=<span class="string">'static'</span>, template_folder=<span class="string">'templates'</span>, root_path=None, ...)</span>:</span></div><div class="line">        _PackageBoundObject.__init__(self, import_name,</div><div class="line">                                    template_folder=template_folder,</div><div class="line">                                    static_folder=static_folder,</div><div class="line">                                    root_path=root_path)</div></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># flask/helpers.py</span></div><div class="line"></div><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">_PackageBoundObject</span><span class="params">()</span>:</span></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, import_name, template_folder=None, static_folder=None, root_path=None)</span>:</span></div><div class="line">        self.import_name = import_name</div><div class="line">        self.template_folder = template_folder</div><div class="line"></div><div class="line">        <span class="keyword">if</span> root_path <span class="keyword">is</span> <span class="keyword">None</span>:</div><div class="line">            root_path = get_root_path(self.import_name)</div><div class="line">        self.root_path = root_path</div><div class="line">        <span class="comment"># ... more codes ...</span></div><div class="line">    <span class="comment"># ... more codes ...</span></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">get_root_path</span><span class="params">(import_name)</span>:</span></div><div class="line">    mod = sys.modules.get(import_name)</div><div class="line">    <span class="keyword">if</span> mod <span class="keyword">is</span> <span class="keyword">not</span> <span class="keyword">None</span> <span class="keyword">and</span> hasattr(mod, <span class="string">'__file__'</span>):</div><div class="line">        <span class="keyword">return</span> os.path.basename(os.path.abspath(mod.__file__))</div><div class="line">    </div><div class="line">    loader = pkgutil.get_loader(import_name)</div><div class="line">    <span class="keyword">if</span> loader <span class="keyword">is</span> <span class="keyword">None</span> <span class="keyword">or</span> import_name == <span class="string">'__main__'</span>:</div><div class="line">        <span class="keyword">return</span> os.getcwd()</div></pre></td></tr></table></figure>
+<p><code>Flask</code>类继承自<code>_PackageBoundObject</code>.<br>可以看到，<code>Flask</code>对象中存在一个<code>root_path</code>属性：</p>
+<ul>
+<li>如果在初始化<code>Flask</code>对象时没有设置该属性，该属性的值由<code>import_name</code>的值计算得到；</li>
+<li>如果在初始化<code>Flask</code>对象时设置了<code>root_path</code>的值，则使用该指定值。</li>
+</ul>
+<p>参考<a href="http://flask.pocoo.org/docs/0.12/api/#application-object" target="_blank" rel="external">Flask API definition</a>:</p>
+<blockquote>
+<p><cite> <strong>root_path</strong> - Flask by default will automatically calculate the path to the root of the application. In certain situations this cannot be achieved (for instance if the package is a Python 3 namespace package) and needs to be manually defined. </cite></p>
+</blockquote>
+<p>那么，<code>Flask.root_path</code>属性有什么作用呢？</p>
+<p>例如，在<code>Flask.jinja_loader()</code>中，根据<code>Flask.root_path</code>和<code>Flask.template_folder</code>返回<code>loader</code>。</p>
+<p>又如，在<code>Flask.open_resource()</code>方法中，<code>resource</code>也是相对<code>Flask.root_path</code>的路径得到的。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h2 id=&quot;Preface&quot;&gt;&lt;a href=&quot;#Preface&quot; class=&quot;headerlink&quot; title=&quot;Preface&quot;&gt;&lt;/a&gt;Preface&lt;/h2&gt;&lt;p&gt;According to &lt;a href=&quot;http://flask.pocoo.org/docs/
+    
+    </summary>
+    
+      <category term="flask" scheme="https://resettingmq.github.io/categories/flask/"/>
+    
+    
+      <category term="python" scheme="https://resettingmq.github.io/tags/python/"/>
+    
+      <category term="flask" scheme="https://resettingmq.github.io/tags/flask/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>lxml.html学习笔记</title>
+    <link href="https://resettingmq.github.io/2017/04/23/lxml-html%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/"/>
+    <id>https://resettingmq.github.io/2017/04/23/lxml-html学习笔记/</id>
+    <published>2017-04-23T13:25:16.000Z</published>
+    <updated>2017-04-24T16:04:24.928Z</updated>
+    
+    <content type="html"><![CDATA[<p>虽然Scrapy中采用了lxml作为xml/html的解析器，能够方便的解析xml/html文档树，但是在学习爬虫的时候，仍有时希望跳出Scrapy框架，写一些简单的爬虫或者对页面结构的测试。这个时候，就需要BetifulSoup/lxml/正则表达式这些工具了。</p>
+<p>这里简单的记录一下lxml.html库的api。</p>
+<h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>lxml.html库建立在lxml的HTML parser的基础之上，针对HTML元素提供了一组特殊的Element API，以及一些实用的Utilities。</p>
+<h2 id="生成html文档对象"><a href="#生成html文档对象" class="headerlink" title="生成html文档对象"></a>生成html文档对象</h2><p>HTML文档以及其中的元素在经过解析后，表示为一个<a href="http://lxml.de/api/index.html" target="_blank" rel="external"><code>lxml.html.HtmlElement</code></a>对象。</p>
+<p>有以下的方法能够通过字符串或者文件对象，用来创建HTML文档或者元素对象。</p>
+<ul>
+<li><p><code>parse(filename_url_or_file)</code></p>
+<p>  从文件对象中解析HTML文档或元素。</p>
+</li>
+<li><p><code>document_fromstring(string)</code></p>
+<p>  从字符串参数中解析HTML文档。</p>
+<p>  返回的结果一定是一个合法的HTML文档，也就是说最外层元素标签为<code>&lt;html&gt;&lt;/html&gt;</code>，并且具有一对<code>&lt;body&gt;&lt;/body&gt;</code>元素标签和一对可选的<code>&lt;head&gt;&lt;/head&gt;</code>标签。</p>
+</li>
+<li><p><code>fragment_fromstring(string, create_parent=False)</code></p>
+<p>  从字符串参数中解析出<strong>一个</strong>HTML元素。</p>
+<p>  在指定了<code>create_parent</code>参数的情况下，解析结果的外层会由该参数指定的元素标签包裹。</p>
+</li>
+<li><p><code>fragmens_fromstring(string)</code></p>
+<p>  返回一个元素列表。</p>
+</li>
+<li><p><code>fromstring(string)</code></p>
+<p>  根据字符串参数内容判断，采用<code>document_fromstring</code>或者<code>fragment_fromstring</code>来解析字符串参数，返回一个HTML文档或者一个HTML元素。</p>
+</li>
+</ul>
+<h2 id="lxml-html-HtmlElement-的属于与方法"><a href="#lxml-html-HtmlElement-的属于与方法" class="headerlink" title="lxml.html.HtmlElement 的属于与方法"></a><code>lxml.html.HtmlElement</code> 的属于与方法</h2><p><code>lxml.html.HtmlElement</code>继承自<a href="http://lxml.de/api/lxml.etree.ElementBase-class.html" target="_blank" rel="external"><code>lxml.etree.ElementBase</code></a>和<a href="http://lxml.de/api/lxml.html.HtmlMixin-class.html" target="_blank" rel="external"><code>lxml.html.HtmlMixin</code></a>，所以<code>HtmlElement</code>对象中包含了一些修改HTML文档以及元素的方法。<br>这里仅介绍一些常用的爬虫相关的属性以及元素查询方法。</p>
+<ul>
+<li><code>find_class(class_name)</code></li>
+<li><code>find_rel_links(rel)</code></li>
+<li><code>get_element_by_id(id, default=None)</code></li>
+<li><code>text_content()</code></li>
+<li><code>cssselect(expr)</code></li>
+<li><code>xpath(expr)</code></li>
+</ul>
+<hr>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li><a href="http://lxml.de/lxmlhtml.html" target="_blank" rel="external">lxml.html Documentation</a></li>
+</ul>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;虽然Scrapy中采用了lxml作为xml/html的解析器，能够方便的解析xml/html文档树，但是在学习爬虫的时候，仍有时希望跳出Scrapy框架，写一些简单的爬虫或者对页面结构的测试。这个时候，就需要BetifulSoup/lxml/正则表达式这些工具了。&lt;/p&gt;
+
+    
+    </summary>
+    
+    
+  </entry>
+  
+  <entry>
     <title>coroutine学习笔记</title>
     <link href="https://resettingmq.github.io/2017/04/23/coroutine%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/"/>
     <id>https://resettingmq.github.io/2017/04/23/coroutine学习笔记/</id>
     <published>2017-04-23T09:33:51.000Z</published>
-    <updated>2017-04-23T09:50:13.702Z</updated>
+    <updated>2017-04-27T02:00:05.000Z</updated>
     
     <content type="html"><![CDATA[<h2 id="前面的话"><a href="#前面的话" class="headerlink" title="前面的话"></a>前面的话</h2><p>这个星期在研究Scrapy media Pipeline源码 (<a href="https://github.com/scrapy/scrapy/blob/master/scrapy/pipelines/media.py" target="_blank" rel="external">scrapy.pipelines.images</a>)的时候，遇到文档中一直被跳过阅读的Deferred对象，于是就打算尝试去理解一下Twisted。但由于基础不过硬，在基本的事件驱动模型上都没有理解透彻，所以打算从异步编程的基础开始学习。</p>
 <p>之前在廖雪峰大师的博客中看了一遍异步IO相关的<a href="http://www.liaoxuefeng.com/wiki/0014316089557264a6b348958f449949df42a6d3a2e542c000/00143208573480558080fa77514407cb23834c78c6c7309000" target="_blank" rel="external">教程</a>,了解到了coroutine（协程）这样一个概念，这篇文章中打算记录一下学习过程中的心得。</p>
 <p>是不是很晕？我就这样很容易的从Scrapy源码被带到了coroutine，一向如此，看到不了解的东西就像去深究其中究竟，导致战线拉太长，效率不高，简单的东西没精通掌握，复杂的东西又没透彻学会。以后要学会适时忽略细节，在掌握整体之后再来深究部分。</p>
-<h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><h2 id="同其他常用异步技术的比较"><a href="#同其他常用异步技术的比较" class="headerlink" title="同其他常用异步技术的比较"></a>同其他常用异步技术的比较</h2><p>协程的这一个特点与多进程/多线程相似，但是不同的是多进程/多线程程序在运行过程中，进程/线程之间的切换是有OS底层来进行控制的（例如时间中断）；而协程切换的时机以及切换的目标是有程序自身进行控制的。</p>
+<h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>协程的定义类似于普通函数的定义：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">coroutine_name</span><span class="params">()</span>:</span></div><div class="line">    <span class="comment"># defines your coroutine here.</span></div></pre></td></tr></table></figure></p>
+<p>但协程的执行过程与普通函数不同。</p>
+<p>普通函数的执行总是有一个入口，一次返回；但是协程的执行可以在其内部中断，由自己控制转到其它协程的代码中执行，之后在一定的时间返回到这个协程中继续执行。</p>
+<p>多个协程是在一个进程中运行的。</p>
+<h2 id="同其他常用异步技术的比较"><a href="#同其他常用异步技术的比较" class="headerlink" title="同其他常用异步技术的比较"></a>同其他常用异步技术的比较</h2><p>协程的这一个特点与多进程/多线程相似，但是不同的是多进程/多线程程序在运行过程中，进程/线程之间的切换是有OS底层来进行控制的（例如时间中断）；而协程切换的时机以及切换的目标是有程序自身进行控制的。</p>
 <p>由于多个协程运行与一个进程之中，<br>因此，不会存在同时写变量的冲突，不需要像多线程那样对共享资源进行加锁。</p>
 <p>同时协程也没有多进程/多线程程序的切换开销，执行效率更高。</p>
-<h2 id="Python对协程的支持"><a href="#Python对协程的支持" class="headerlink" title="Python对协程的支持"></a>Python对协程的支持</h2>]]></content>
+<h2 id="Python对协程的支持"><a href="#Python对协程的支持" class="headerlink" title="Python对协程的支持"></a>Python对协程的支持</h2><p>由于协程的特点，要实现协程，很重要的一个方面就是context的保存和切换。</p>
+<p>这一个特点跟用yield语句实现的生成器很像，只不过这个时候是在调用生成器的程序与生成器内部程序之间相互跳转交错执行。</p>
+<p>实际上，python正是用yield语法来编写协程的。</p>
+<h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p><a href="http://www.liaoxuefeng.com/wiki/0014316089557264a6b348958f449949df42a6d3a2e542c000/001432090171191d05dae6e129940518d1d6cf6eeaaa969000" target="_blank" rel="external">协程 - 廖雪峰的官方网站</a><br><a href="http://www.tuicool.com/articles/jeqMjq3" target="_blank" rel="external">从0到1，Python异步编程的演进之路</a></p>
+]]></content>
     
     <summary type="html">
     
