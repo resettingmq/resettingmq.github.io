@@ -2,6 +2,13 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
+    <loc>https://resettingmq.github.io/2017/07/05/datatables-with-django/</loc>
+    
+    <lastmod>2017-07-05T10:22:18.936Z</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://resettingmq.github.io/2017/05/21/flask-web-%E5%BC%80%E5%8F%91-%E6%B5%8B%E8%AF%95%E9%A9%B1%E5%8A%A8%E5%BC%80%E5%8F%91/</loc>
     
     <lastmod>2017-05-21T15:12:17.067Z</lastmod>
