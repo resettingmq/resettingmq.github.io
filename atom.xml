@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://resettingmq.github.io/"/>
-  <updated>2017-07-05T10:22:18.936Z</updated>
+  <updated>2017-07-27T08:38:39.930Z</updated>
   <id>https://resettingmq.github.io/</id>
   
   <author>
@@ -16,11 +16,440 @@
   <generator uri="http://hexo.io/">Hexo</generator>
   
   <entry>
+    <title>Django FormField 实现笔记 二</title>
+    <link href="https://resettingmq.github.io/2017/07/23/django-custom-ModelFormField/"/>
+    <id>https://resettingmq.github.io/2017/07/23/django-custom-ModelFormField/</id>
+    <published>2017-07-22T16:43:00.000Z</published>
+    <updated>2017-07-27T08:38:39.930Z</updated>
+    
+    <content type="html"><![CDATA[<p>这篇文章继续记录实现ModelFormField的过程。</p>
+<p>ModelFormField继承自FormField，在FormField的基础上实现。</p>
+<p>为了简单，在这一阶段的实现当中，先做一下约定：</p>
+<blockquote>
+<p>ModelFormField对应的model中存在一个到外层ModelForm的<code>oneToOneField</code>，即外层ModelForm中存在一个<code>OneToOneRel</code>属性指向内层model的实例。</p>
+<p>其它的外键关联情况之后再实现。 </p>
+</blockquote>
+<h1 id="ModelFormField与FormField的异同"><a href="#ModelFormField与FormField的异同" class="headerlink" title="ModelFormField与FormField的异同"></a>ModelFormField与FormField的异同</h1><p>ModelFormField与FormField在生成HTML部分的逻辑是一致的，不同的部分主要集中在数据处理的部分：</p>
+<ol>
+<li>ModelForm能够接受<code>instance</code>初始化参数</li>
+</ol>
+<h1 id="内层ModelForm的匹配"><a href="#内层ModelForm的匹配" class="headerlink" title="内层ModelForm的匹配"></a>内层ModelForm的匹配</h1><p><del>在外层ModelForm中声明ModelFormField的时候，需要对内层ModelForm的model进行匹配检查。如果这个model与外层ModelForm的model对应<code>OneToOneRel</code>不匹配的情况下，就会报错。</del></p>
+<p><del>这个逻辑需要在元类中实现。</del></p>
+<p>因为在ModelForm声明时进行类型检查，需要内层ModelForm已经定义，所以容易造成循环引用。所以改在ModelForm实例化的时候进行内外层Model的匹配检查。</p>
+<h1 id="instance参数"><a href="#instance参数" class="headerlink" title="instance参数"></a>instance参数</h1><p>ModelForm的instance参数指定的对象，将与initial参数指定的值共同为ModelForm提供渲染的初始值，这一个过程发生在ModelForm的<code>__init__()</code>当中。</p>
+<p>所以为了能够使提供的instance参数能够被正常在模板中渲染，需要在内层ModelForm初始化之前提供instance参数。</p>
+<p>初始化参数<code>instance</code>会在ModelForm初始化过程中生成一个对应的dict形式<code>object_data</code>，并结合<code>initial</code>参数值，作为最终Form的<code>initial</code>初始化参数（ModelForm的<code>initial</code>初始化参数会覆盖<code>object_data</code>中的相应值。</p>
+<p><code>instance</code>生成<code>object_data</code>过程中，对<code>instance</code>属性的筛选逻辑：</p>
+<ol>
+<li><code>instance</code>的<code>concrete_fields</code>, <code>private_fields</code>, <code>many_to_many</code>；</li>
+<li>必须是<code>editable</code>;</li>
+<li>必须在ModelForm指定生成个的fields中；</li>
+<li>必须不在ModelForm的exclude指定范围中。</li>
+</ol>
+<p>注意：</p>
+<ol>
+<li><code>OneToOneRel</code>类型的属性不会被添加到<code>object_data</code>中；</li>
+<li>对于<code>OneToOneField</code>以及<code>ForeignKey</code>，被添加到<code>object_dict</code>中的是<code>foreign key</code>的值而不是整个关联对象。</li>
+</ol>
+<p>所以，<code>instance</code>中的<code>OneToOneRel</code>属性不会传递到生成Form的<code>initial</code>参数中。</p>
+<p>内层ModelForm的在初始化之前应该能够从外层ModelForm的<code>instance</code>属性中获取到自身对应的<code>instance</code>。在<code>BoundModelFormField</code>中实现<code>property instance</code>。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@property</span></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">instance</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="comment"># 在inner_form实例化之前，从outer_form的instance获取instance</span></div><div class="line">        <span class="comment"># 或者在ModelFormField上获取instance</span></div><div class="line">        instance = getattr(self.form.instance, self.name, <span class="keyword">None</span>) <span class="keyword">or</span> self.field.instance</div><div class="line"></div><div class="line">        <span class="keyword">return</span> instance</div></pre></td></tr></table></figure>
+<p>同时，还需要重写<code>BoundModelFormField.inner_form</code>属性，在获取inner_form的时候添加进<code>instance</code>初始化参数。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@cached_property</span></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">inner_form</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="keyword">if</span> self.form.is_bound:</div><div class="line">            <span class="keyword">return</span> self.field.get_form(self.form.data, self.initial, self.instance)</div><div class="line">        <span class="keyword">return</span> self.field.get_form(initial=self.initial, instance=self.instance)</div></pre></td></tr></table></figure>
+<h1 id="Meta-fields-exclude"><a href="#Meta-fields-exclude" class="headerlink" title="Meta.fields/exclude"></a>Meta.fields/exclude</h1><p>在ModelForm通过Meta.fields/exclude指定ModelForm中Fields的时候，同样会将范围缩小在<code>concrete_fields</code>, <code>private_fields</code>, <code>many_to_many</code>范围之内。所以在Meta.fields中指定<code>OneToOneRel</code>对象的field name就会被忽略。</p>
+<p>但是通过声明的方式常见FormField的field则不会做检查，直接添加到FormField.fields属性当中。</p>
+<blockquote>
+<p>这一块相关内容以后再实现。因为涉及到根据model field的类型自动选择form field的类型，所以可能涉及到修改代码的部分比较多且逻辑复杂。</p>
+</blockquote>
+<h1 id="save-方法"><a href="#save-方法" class="headerlink" title="save()方法"></a>save()方法</h1><p>我们希望在外层ModelForm调用<code>save()</code>方法的过程中，自动调用内层ModelForm的<code>save()</code>方法并确保两者的关联关系。</p>
+<p>为此，需要在Mixin中重新实现<code>ModelForm.save()</code>方法，在外层ModelForm执行<code>save()</code>的过程中，执行所有内层ModelForm的<code>save()</code>方法。</p>
+<p>在文章开头的前提约定之下（即内层ModelForm的model存在<code>OneToOneField</code>指向外层ModelForm的model），为了保证内外层ModelForm对应model之间关系能够正确保存，应该先保存外层ModelForm，获取外层对象的pk值，关联内层对象后再保存内层对象。</p>
+<p>这一保存逻辑只能在参数<code>commit=True</code>的情况下实现。如果<code>commit=False</code>，用户需要手动关联内外层对象（新建对象的情况下）。</p>
+<p>同时，还需要保证内外层ModelForm.save()操作的原子性。</p>
+<h1 id="遇到的坑"><a href="#遇到的坑" class="headerlink" title="遇到的坑"></a>遇到的坑</h1><p>这些坑主要是在测试的过程中遇到的，有助于提高对Django执行原理的理解：</p>
+<ol>
+<li><p>作为初始化参数的instance在ModelForm验证过程中会被验证通过的值修改！我在两个测试样例中用了同一个全局的instance，发现两个测试样例的结果互相耦合。一直以为是ModelFormField的实现中逻辑有错误，花了很长时间debug。。。</p>
+</li>
+<li><p>对于required=False的ModelForm Field，如果传入的data中没有这个Field对应的值，则在验证过程后返回Field类型对应的默认值，并将这个默认值作为<code>save()</code>方法最终返回instance对应属性的值，而不是初始化参数instance中对应属性的值。例如，一个required=False的CharField，如果传入的data为None，则验证过程中会转换成空字符串，最终save()的结果对应属性值为空字符串，而不是初始化参数instance中对应属性的值，初始化参数instance响应的属性值会被设置为空字符串。</p>
+</li>
+<li><p>如果在内层ModelForm的field中包含了指向外层ModelForm的field，这个field是会被传入的data值修改的。所以在<code>save(commit=True)</code>的过程中，即使将内层form的instance的关联属性指向外层form的instance，最终在内层form调用<code>save()</code>的过程中被data值覆盖掉。<br> 解决这个Bug的一个方案是：在内层ModelForm实例化的过程中，将指向外层ModelForm的Field去除掉。</p>
+</li>
+</ol>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;这篇文章继续记录实现ModelFormField的过程。&lt;/p&gt;
+&lt;p&gt;ModelFormField继承自FormField，在FormField的基础上实现。&lt;/p&gt;
+&lt;p&gt;为了简单，在这一阶段的实现当中，先做一下约定：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Model
+    
+    </summary>
+    
+      <category term="Django" scheme="https://resettingmq.github.io/categories/Django/"/>
+    
+    
+      <category term="Django" scheme="https://resettingmq.github.io/tags/Django/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>Django FormField 实现笔记 一</title>
+    <link href="https://resettingmq.github.io/2017/07/19/django-custom-FormField/"/>
+    <id>https://resettingmq.github.io/2017/07/19/django-custom-FormField/</id>
+    <published>2017-07-19T01:58:54.000Z</published>
+    <updated>2017-07-22T16:42:37.303Z</updated>
+    
+    <content type="html"><![CDATA[<p>在Web应用中对一对一关系的处理表单处理，有时需要同时将关系两端的form对象添加到同一个HTML表单中进行提交。</p>
+<p>在Django中，一种常用的做法是在前端分辨渲染两个表单，然后在后端对提交数据分别进行处理并关联。</p>
+<p>在这篇文章里，尝试一种新的思路：将Form包装进Field中，使其能够像普通Field一样定义在其它（外层）Form中，同时又能够提供Form操作的接口（例如渲染，验证，获取数据等）。</p>
+<h1 id="设计目标"><a href="#设计目标" class="headerlink" title="设计目标"></a>设计目标</h1><ol>
+<li><code>FormField</code>能够接受form_class参数以及initial参数，渲染这个Field的时候能够生成指定form；</li>
+<li>from_class可以时ModelFrom，并能够根据instance参数指定的值初始化</li>
+<li>能够接受model参数，根据指定的instance初始化表单</li>
+</ol>
+<h1 id="FormField-数据"><a href="#FormField-数据" class="headerlink" title="FormField 数据"></a>FormField 数据</h1><h2 id="initial-数据"><a href="#initial-数据" class="headerlink" title="initial 数据"></a><code>initial</code> 数据</h2><p>对于内层Form中的Field，<code>initial</code>数据可以有三个来源：</p>
+<ol>
+<li>内层Form的Field在定义时指定的<code>initial</code>值；</li>
+<li>FormField在定义时指定的<code>initial</code>值；</li>
+<li>外层Form在实例化时指定的<code>initial</code>值</li>
+</ol>
+<p>这三种数据来源的优先级依次从低到高。</p>
+<p>由于Django Field类型默认实现中只是简单的在Form initial和Field initial中选择，所以需要在<code>BoundFormField</code>重新实现<code>initial()</code>来修改获取<code>initial value</code>的逻辑（弃用了<code>Form.get_initial_for_field()</code>）：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># in BoundFormField class definition</span></div><div class="line"></div><div class="line"><span class="meta">@property</span></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">initial</span><span class="params">(self)</span>:</span></div><div class="line">    value = copy.copy(self.field.initial)</div><div class="line">    value.update(self.form.initial.get(self.name, &#123;&#125;))</div><div class="line">    </div><div class="line">    retur value</div></pre></td></tr></table></figure>
+<h2 id="POST-数据"><a href="#POST-数据" class="headerlink" title="POST 数据"></a>POST 数据</h2><p>在Django应用程序响应POST请求时，将POST数据作为data初始化参数来生成Form实例。</p>
+<p>为了能够避免内层Form的Field与其它Field名称冲突，同时为了便于提取数据，内层Form的Field对应HTML标签的name属性为<code>&lt;prefix&gt;-&lt;inner_field_name&gt;</code> <del><code>&lt;form_prefix&gt;-&lt;formfield_name&gt;-&lt;inner_field_name&gt;</code></del> <del><code>&lt;formfield_name&gt;-&lt;inner_field_name&gt;</code></del> 的形式。</p>
+<p>这个可以通过在内层Form实例化的时候指定<code>prefix</code>参数来实现。</p>
+<blockquote>
+<p>注意：为了能够正确的实现Form的多层嵌套，需要加上<code>&lt;form_prefix&gt;</code>。</p>
+</blockquote>
+<p><code>Widget.value_from.datadict(data, files, name)</code>方法提供从data中提取数据的接口。<br>为了符合POST数据的情况，这里约定data是一个没有嵌套的（多值）字典形式。</p>
+<p>由于Django Form会处理Field的名字与prefix，到传入的data字典中取响应的值，忽略data字典中其它无关的值，所以<code>Widget.value_from.datadict(data, files, name)</code>方法仅需要简单的将整个data返回，不需要做数据的过滤与修剪。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">value_from_datadict</span><span class="params">(self, data, files, name)</span>:</span></div><div class="line">    <span class="keyword">return</span> data</div></pre></td></tr></table></figure>
+<h1 id="提供Django-Form的接口"><a href="#提供Django-Form的接口" class="headerlink" title="提供Django Form的接口"></a>提供Django Form的接口</h1><p>虽然FormField是一个Django Field，但我们希望它能够提供一些Django Form的行为。例如：</p>
+<ol>
+<li>它的字符串表示形式应该是<code>Form.as_table()</code>的形式（保证在外层<code>Form.as_table()</code>的情况下，内层的FormField能够提供一致的输出）；<br> <em>但是在外层Form调用<code>as_p()/as_ul()</code>方法时似乎无解…</em></li>
+<li>能够像Django Form一样通过字典的键访问FormField所具有的Field和BoundField；</li>
+<li>对FormField进行验证的时候，会调用对内层Form的验证；</li>
+</ol>
+<p>Django Form能够通过类属性<code>base_fields</code>(或者<code>declared_fields</code>)访问Form定义时声明的Field实例，而如果外层Form没有实例化的情况下，应该不能够访问内嵌Form实例对象的属性的。<br>所以就要求FormField所包含的内层Form延迟实例化。</p>
+<p>内层Form实例化的时机也有讲究，必须发生在外层Form实例化之后，对内层Form实例属性进行访问之前。</p>
+<p>由于Django Form进行渲染或者取值是对<code>BoundField</code>对象进行；<br>同时，Django对Form实例的迭代以及通过下标取值返回的也是BoundField对象，所以对内层Form实例的访问的逻辑应该在<code>BoundField</code>对象中实现。</p>
+<p>所以考虑实现一个BoundField的子类，实现对内层Form实例访问的接口；同时在BoundField子类中增加一个<code>cached_property</code>，这样也能保证内层Form实例化的延迟。</p>
+<p>当外层Form为unbound时（初始化参数data为None），生成的内层Form也应该为unbound，这样才能保证内层Form的initial值能够正常渲染（原因是<code>BoundField.value()</code>的默认实现会在bound的情况下使用<code>BoundField.data</code>渲染，而不是<code>BoundField.initial</code>，除非该<code>field.disabled==True</code>）。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div></pre></td><td class="code"><pre><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">BoundFormField</span><span class="params">(BoundField)</span>:</span></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__getitem__</span><span class="params">(self, name)</span>:</span></div><div class="line">        <span class="keyword">return</span> self.inner_form[name]</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__iter__</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="keyword">return</span> iter(self.inner_form)</div><div class="line"></div><div class="line"><span class="meta">    @property</span></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">data</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="comment"># 委托到inner form各field上取值</span></div><div class="line">        <span class="comment"># 对于多层嵌套的FormField实现了递归取值</span></div><div class="line">        <span class="comment"># 而不需要在POST数据中根据键来构建dict（需要实现递归逻辑）</span></div><div class="line">        <span class="keyword">return</span> &#123;name: self.inner_form[name].data <span class="keyword">for</span> name <span class="keyword">in</span> self.inner_form.fields&#125;</div><div class="line"></div><div class="line"><span class="meta">    @cached_property</span></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">inner_form</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="comment"># 加入form.prefix是为了实现多成嵌套</span></div><div class="line">        <span class="keyword">if</span> self.form.is_bound:</div><div class="line">            <span class="keyword">return</span> self.field.get_form(self.form.data, self.initial)</div><div class="line">        <span class="keyword">return</span> self.field.get_form(initial=self.initial)</div><div class="line"></div><div class="line">    <span class="comment"># some other code ...</span></div></pre></td></tr></table></figure>
+<h1 id="FormField上参数的处理"><a href="#FormField上参数的处理" class="headerlink" title="FormField上参数的处理"></a>FormField上参数的处理</h1><h2 id="1-required"><a href="#1-required" class="headerlink" title="1. required"></a>1. <code>required</code></h2><p>当在FormField上<code>required</code>为True时，内层Form的Field保持自身的<code>required</code>状态；为False时，整个内层Form可以为空，这个时候Form返回的值为<code>{}</code>(空dict)；</p>
+<blockquote>
+<p><del><em>注意：这里要求返回空dict。因为内层Form的生成依赖于<code>BoundFormField.data property</code>，如果这种情况下这个<code>property</code>返回<code>None</code>的话，则生成的内层From实例是<code>unbound</code>，再次渲染的时候会显示有<code>initial</code>的值</em></del></p>
+<p><em>（因为对内层Form是否Bound的控制改在了<code>BoundFieldForm.inner_form property</code>中实现，所以这里不再有要求）</em></p>
+</blockquote>
+<p>Field的<code>use_required_attribute</code>参数只能控制表单渲染时不添加<code>required</code> HTML属性，不能改变Form在验证时对<code>required</code>的处理。</p>
+<p>所以在FormField的<code>required</code>属性为False时，需要将内层Form所有的field的<code>required</code>属性设置为<code>False</code>。这在<code>FormField.gett_form()</code>中实现。</p>
+<h2 id="2-disabled"><a href="#2-disabled" class="headerlink" title="2. disabled"></a>2. <code>disabled</code></h2><p>如果FormField上<code>disabled</code>为True时，内层Form所有Field为<code>disabled</code>状态，渲染以及验证的数据由<code>initial</code>的值决定；当为False时，内层Form各Field的<code>disabled</code>状态由自身决定。</p>
+<p>同样，如果在<code>FormField.disabled == True</code>的情况下，应该将内层Form所有field的<code>disabled</code>属性设置为<code>True</code>。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">get_form</span><span class="params">(self, data=None, initial=None, **kwargs)</span>:</span></div><div class="line">    kwargs[<span class="string">'data'</span>] = data</div><div class="line">    kwargs[<span class="string">'initial'</span>] = initial</div><div class="line">    kwargs[<span class="string">'prefix'</span>] = self.prefix</div><div class="line"></div><div class="line">    form = self.form_class(**kwargs)</div><div class="line">    <span class="keyword">if</span> <span class="keyword">not</span> self.required:</div><div class="line">        <span class="keyword">for</span> field <span class="keyword">in</span> form.fields.values():</div><div class="line">            field.required = <span class="keyword">False</span></div><div class="line"></div><div class="line">    <span class="keyword">if</span> self.disabled:</div><div class="line">        <span class="keyword">for</span> field <span class="keyword">in</span> form.fields.values():</div><div class="line">            field.disabled = <span class="keyword">True</span></div><div class="line"></div><div class="line">    <span class="keyword">return</span> form</div></pre></td></tr></table></figure>
+<h1 id="FormField验证"><a href="#FormField验证" class="headerlink" title="FormField验证"></a>FormField验证</h1><p>同样，FormField的验证也委托到内层Form的验证，在<code>FormField.clean()</code>中实现：</p>
+<ol>
+<li>如果内层Form验证通过，则返回内层Form的<code>cleaned_data</code>；</li>
+<li>如果内层Form验证不通过，则根据内层Form的erros属性构造<code>ValidationError</code>，并抛出；</li>
+</ol>
+<p>因为验证的数据是dict（一般情况为<code>POST</code>数据），所以需要根据这个dict生成内层form实例，并将内层form实例验证生成的<code>cleaned_data</code>作为新的验证目标数据value返回。这部分逻辑在<code>FormField.to_python()</code>中实现。</p>
+<p>有一个比较重要的问题是Django的验证过程中，没有将Field的name传入到<code>Field.clean()</code>中，所以没有办法为内层form实例指定正确的prefix。除非重写<code>Form._clean_fields()</code>，除此之外没有找到什么其它的办法。</p>
+<p>所以退而求其次，在<code>FormField</code>初始化参数中加入prefix参数，手动指定。这样就能够在<code>to_python()</code>方法中生成正确的内层Form实例。</p>
+<p><code>validate()</code>中实现<code>required</code>验证，可以直接利用默认实现。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">to_python</span><span class="params">(self, value)</span>:</span></div><div class="line">    form = self.get_form(value)</div><div class="line">    <span class="keyword">if</span> form.is_valid():</div><div class="line">        <span class="keyword">return</span> form.cleaned_data</div><div class="line"></div><div class="line">    <span class="comment"># 将inner_form的errors转化为不带error_dict属性的ValidationError对象</span></div><div class="line">    new_error_list = []</div><div class="line">    <span class="keyword">for</span> name, error_list <span class="keyword">in</span> form.errors.as_data().items():</div><div class="line">        <span class="keyword">for</span> error <span class="keyword">in</span> error_list:</div><div class="line">            <span class="keyword">if</span> hasattr(error, <span class="string">'message'</span>):</div><div class="line">                error.message = <span class="string">'Field &#123;&#125; in FormField: &#123;&#125;'</span>.format(name, error.message)</div><div class="line">        new_error_list.extend(error_list)</div><div class="line">    <span class="keyword">raise</span> ValidationError(new_error_list, code=<span class="string">'FormFieldError'</span>)</div></pre></td></tr></table></figure>
+<h1 id="HTML代码生成"><a href="#HTML代码生成" class="headerlink" title="HTML代码生成"></a>HTML代码生成</h1><p>在Django中，<code>Widget</code>主要负责根据表单项生成HTML以及从<code>POST</code>的数据中提取相关表单项的数据。</p>
+<p>生成HTML代码主要在<code>Widget.render(name, value, attrs, form)</code>方法中实现。<br><code>Widget.render()</code>方法中的value参数包含了需要渲染的数据，在这个例子中，它是一个<code>form</code>的实例。</p>
+<p>前面已经提到，将FormField字符串化（即在模板中直接输出FormField实例<em>（对应的UnboundField）</em>）的结果设计成调用内层Form的<code>as_table()</code>方法，所以只需要在<code>Widget.render()</code>方法中返回<code>value.as_table()</code>即可（下面会介绍一个小扩展，可以通过自定义template修改输出的FormField）。</p>
+<h2 id="稍微扩展一下"><a href="#稍微扩展一下" class="headerlink" title="稍微扩展一下"></a>稍微扩展一下</h2><p>直接输出FormField内层Form的table形式，往往不是我们需要的，而通过内层Form的属性单独控制各个Field的输出，有比较繁琐。</p>
+<p>为了减少重复工作，便于样式化修改，考虑利用template格式化FormField。</p>
+<p><code>Django Widget</code>的渲染可以由模板控制，模板的路径在<code>Widget.template_name</code>中设置。</p>
+<p><code>Widget.render()</code>方法会调用<code>Widget._render()</code>方法，这个方法能够根据指定的template，生成HTML代码段。</p>
+<p><code>Widget.render()</code>方法会调用<code>Widget.get_context()</code>方法，生成渲染field对应HTML代码所需要的上下文。<br>因为默认实现中，生成上下文的过程中会自动将value转化为字符串形式，这不是我们想要的结果，所以我们还需要重写<code>Widget.get_context()</code>方法。</p>
+<p>为了能够方便的控制模板的渲染，在FormField的初始化参数中增加了<code>using_template</code>和<code>template_name</code>参数。当<code>using_template == True</code>时，使用模板渲染FormField（而不是简单的<code>as_table()</code>)；<code>template_name</code>用于指定模板路径，用于覆盖Widget设置的默认模板路径。</p>
+<p>同时还需要重写<code>BoundFormField.as_widget()</code>方法，在它调用<code>Widget.render()</code>方法的时候将<code>using_template</code>和<code>template_name</code>传入。</p>
+<figure class="highlight html"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">&#123;% for field in form %&#125;</div><div class="line">    &#123;&#123; field &#125;&#125;</div><div class="line">&#123;% endfor %&#125;</div></pre></td></tr></table></figure>
+<p>通过修改这个模板，我们可以对<code>FormField</code>输出的HTML样式进行控制。</p>
+<h1 id="补充"><a href="#补充" class="headerlink" title="补充"></a>补充</h1><ol>
+<li><code>ModelFormField</code>相关的实现，在下篇文章记录。</li>
+<li><code>Field</code>,<code>BoundField</code>, <code>Widget</code>中有很多方法都没有考虑以及测试，在调用这些方法的时候有可能会异常。</li>
+<li>在这个实现中，没有考虑与<code>FileField</code>等Field类型的情况，今后学习了有关表单文件处理的代码之后再慢慢完善。</li>
+</ol>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;在Web应用中对一对一关系的处理表单处理，有时需要同时将关系两端的form对象添加到同一个HTML表单中进行提交。&lt;/p&gt;
+&lt;p&gt;在Django中，一种常用的做法是在前端分辨渲染两个表单，然后在后端对提交数据分别进行处理并关联。&lt;/p&gt;
+&lt;p&gt;在这篇文章里，尝试一种新的思路
+    
+    </summary>
+    
+      <category term="Django" scheme="https://resettingmq.github.io/categories/Django/"/>
+    
+    
+      <category term="Django" scheme="https://resettingmq.github.io/tags/Django/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>custom_django_admin_command</title>
+    <link href="https://resettingmq.github.io/2017/07/14/custom-django-admin-command/"/>
+    <id>https://resettingmq.github.io/2017/07/14/custom-django-admin-command/</id>
+    <published>2017-07-14T15:25:01.000Z</published>
+    <updated>2017-07-15T09:04:42.818Z</updated>
+    
+    <content type="html"><![CDATA[<p>最近在将Django编写的应用部署到其它服务器上的时候，需要生成DB中的演示数据。由于演示数据生成函数需要在Model上逐个调用；同时Model之前存在依赖关系（<code>One-to-One</code>, <code>One-to-Many</code>等关系），对数据生成函数的调用顺序也有要求，所以手动完成比较麻烦且容易出错。</p>
+<p>这里考虑使用Django的自定义admin command来自动化这一操作。</p>
+<p>要实现这一功能，主要涉及两个要点：</p>
+<ol>
+<li>实现自定义<code>admin command</code>;</li>
+<li>解决Model之间的依赖关系</li>
+</ol>
+<p><em>Note: 以下所有的讨论都不包括<code>Many-to-Many</code>关系。多对多的关系有一些特殊情况要处理，以后再做讨论</em></p>
+<h2 id="1-自定义admin-command"><a href="#1-自定义admin-command" class="headerlink" title="1. 自定义admin command"></a>1. 自定义<code>admin command</code></h2><p>Django中的<code>admin command</code>指的是通过<code>django-admin</code>/<code>manage.py</code>/<code>python -m django</code>提供的参数化调用接口。</p>
+<p>跟Flask通过装饰器注册command的方式不同，Django规范了command定义的目录结构以及继承结构：</p>
+<ol>
+<li>Django自动搜索已注册的app，将<code>app.management.commands</code>包下的所有不以下划线作为名字开头的模块自动注册为command；</li>
+<li>所有的command的模块中必须定义名为Command类，并且这个类必须继承自<code>django.core.management.BaseCommand</code>类或者其子类。</li>
+</ol>
+<h3 id="1-1-设计目标"><a href="#1-1-设计目标" class="headerlink" title="1.1 设计目标"></a>1.1 设计目标</h3><ol>
+<li>command名为init_db；</li>
+<li>command的调用参数为 <code>django-admin init_db [app_label] [model_name]</code>：<ul>
+<li>如果不指定app_label,则对所有app的所有model执行数据生成；</li>
+<li>如果指定app_label不指定model_name，则对该app的所有model执行数据生成；</li>
+<li>如果同时指定了app_label和model_name，则只对该app的指定model执行数据生成。</li>
+</ul>
+</li>
+</ol>
+<h3 id="1-2-command-argument"><a href="#1-2-command-argument" class="headerlink" title="1.2 command argument"></a>1.2 command argument</h3><p>Django admin command使用了<code>argparse</code>库来实现。所以定义参数的方式同<code>argparse</code>一样。</p>
+<p><code>BaseCommand</code>的<code>add_arguments()</code>方法提供了注册参数的入。这个函数提供了一个<code>parser</code>参数，作为<code>argparse.ArgumentPaser</code>实例。<br>所以只需要调用<code>parser.add_argument()</code>就能够注册参数。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">add_arguments</span><span class="params">(self, parser)</span>:</span></div><div class="line">    parser.add_argument(<span class="string">'app_label'</span>, action=<span class="string">'store'</span>, nargs=<span class="string">'?'</span>)</div><div class="line">    parser.add_argument(<span class="string">'model_name'</span>, action=<span class="string">'store'</span>, nargs=<span class="string">'?'</span>)</div></pre></td></tr></table></figure>
+<h3 id="1-3-业务逻辑"><a href="#1-3-业务逻辑" class="headerlink" title="1.3 业务逻辑"></a>1.3 业务逻辑</h3><p>所有的业务逻辑都在<code>BaseCommand.handle()</code>函数中实现。</p>
+<p>这个函数提供了一个<code>options</code>字典，这个字典包含了获取的所有command参数。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">handle</span><span class="params">(self, *args, **options)</span>:</span></div><div class="line">    all_models = apps.get_models()</div><div class="line"></div><div class="line">    <span class="keyword">if</span> options[<span class="string">'app_label'</span>] <span class="keyword">is</span> <span class="keyword">None</span>:</div><div class="line">        target_models = all_models</div><div class="line">        initialized = []</div><div class="line">    <span class="keyword">else</span>:</div><div class="line">        <span class="keyword">try</span>:</div><div class="line">            target_app = apps.get_app_config(options[<span class="string">'app_label'</span>])</div><div class="line">        <span class="keyword">except</span> LookupError <span class="keyword">as</span> e:</div><div class="line">            <span class="keyword">raise</span> CommandError(<span class="string">'app &#123;&#125; not found'</span>.format(options[<span class="string">'app_label'</span>]))</div><div class="line">        <span class="keyword">if</span> options[<span class="string">'model_name'</span>] <span class="keyword">is</span> <span class="keyword">None</span>:</div><div class="line">            target_models = target_app.get_models()</div><div class="line">        <span class="keyword">else</span>:</div><div class="line">            <span class="keyword">try</span>:</div><div class="line">                target_models = [target_app.get_model(options[<span class="string">'model_name'</span>]), ]</div><div class="line">            <span class="keyword">except</span> LookupError:</div><div class="line">                <span class="keyword">raise</span> CommandError(<span class="string">'model &#123;&#125; not found'</span>.format(options[<span class="string">'model_name'</span>]))</div><div class="line">        <span class="comment"># 需要将iterator转为list</span></div><div class="line">        <span class="comment"># 因为not in操作有可能提前将iterator耗尽</span></div><div class="line">        target_models = list(target_models)</div><div class="line">        initialized = [m <span class="keyword">for</span> m <span class="keyword">in</span> all_models <span class="keyword">if</span> m <span class="keyword">not</span> <span class="keyword">in</span> target_models]</div><div class="line">    init_target = [[m, <span class="keyword">False</span>, _get_dependent_models(m)] <span class="keyword">for</span> m <span class="keyword">in</span> target_models]</div><div class="line"></div><div class="line">    init_target_len = len(init_target)</div><div class="line">    count = <span class="number">0</span></div><div class="line">    <span class="keyword">while</span> init_target_len &gt; count:</div><div class="line">        <span class="keyword">for</span> m <span class="keyword">in</span> init_target:</div><div class="line">            <span class="keyword">if</span> m[<span class="number">1</span>]:</div><div class="line">                <span class="keyword">continue</span></div><div class="line">            <span class="keyword">if</span> _check_all_dependent_model_initialized(m[<span class="number">2</span>], initialized):</div><div class="line">                initialized.append(m[<span class="number">0</span>])</div><div class="line">                <span class="comment"># 生成数据</span></div><div class="line">                _populate_model(m[<span class="number">0</span>])</div><div class="line">                m[<span class="number">1</span>] = <span class="keyword">True</span></div><div class="line">                count += <span class="number">1</span></div></pre></td></tr></table></figure>
+<p>一些辅助函数：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">_get_dependent_models</span><span class="params">(model)</span>:</span></div><div class="line">    <span class="keyword">return</span> [f.related_model <span class="keyword">for</span> f <span class="keyword">in</span> model._meta.get_fields()</div><div class="line">            <span class="keyword">if</span> f.related_model != model <span class="keyword">and</span> (f.one_to_one <span class="keyword">or</span> f.many_to_one) <span class="keyword">and</span> f.concrete]</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">_populate_model</span><span class="params">(model)</span>:</span></div><div class="line">    <span class="keyword">try</span>:</div><div class="line">        model.populate()</div><div class="line">    <span class="keyword">except</span> AttributeError:</div><div class="line">        logging.warning(<span class="string">'model &#123;&#125; does not support populate()'</span></div><div class="line">                        .format(model._meta.verbose_name))</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">_check_all_dependent_model_initialized</span><span class="params">(dependencies, initialized)</span>:</span></div><div class="line">    <span class="keyword">for</span> d <span class="keyword">in</span> dependencies:</div><div class="line">        <span class="keyword">if</span> d <span class="keyword">not</span> <span class="keyword">in</span> initialized:</div><div class="line">            <span class="keyword">return</span> <span class="keyword">False</span></div><div class="line">    <span class="keyword">return</span> <span class="keyword">True</span></div></pre></td></tr></table></figure></p>
+<h3 id="1-4-抛出异常"><a href="#1-4-抛出异常" class="headerlink" title="1.4 抛出异常"></a>1.4 抛出异常</h3><p>如果app_label/model_name指定错误，则抛出<code>django.core.management.base.CommandError</code>异常。<br>使用这个异常类，能够在命令行中格式化输出错误信息。</p>
+<h3 id="1-5-测试"><a href="#1-5-测试" class="headerlink" title="1.5 测试"></a>1.5 测试</h3><p>Django提供了<code>django.core.management.call_command</code>测试接口。</p>
+<p>通过这个接口，可以在测试用例中调用自定义<code>admin command</code>实现测试。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div></pre></td><td class="code"><pre><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">InitDbCommandTestCase</span><span class="params">(TransactionTestCase)</span>:</span></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">test_initdb_command_registered</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="comment"># 测试command是否注册成功</span></div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">test_accept_app_label_positional_argument</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="comment"># 测试app_label参数是否设置成功</span></div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">test_app_label_argument_is_optional</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="comment"># 测试app_label参数是否可选</span></div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">test_raise_command_error_when_app_label_not_found</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="comment"># 测试app_label错误是否引发异常</span></div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">test_accept_model_name_positional_argument</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="comment"># 测试是否接受model_name参数</span></div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">test_raise_command_error_when_model_name_not_found</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="comment"># 测试model_name参数错误是否抛出异常</span></div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">test_properly_polulate_data_without_app_label</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="comment"># 测试不设置app_label的情况下生成数据是否正确</span></div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">test_properly_polulate_data_with_only_app_label</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="comment"># 测试仅设置app_label参数的情况下是否正确生成数据</span></div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">test_properly_populate_data_with_app_label_and_model_name</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="comment"># 测试同时设置app_label和model_name的情况下是否正确生成数据</span></div></pre></td></tr></table></figure>
+<h2 id="2-Model之间的依赖关系"><a href="#2-Model之间的依赖关系" class="headerlink" title="2. Model之间的依赖关系"></a>2. Model之间的依赖关系</h2><p>Model之间的依赖关系形成了一个森林，但由于学的数据结构全部还给老师了，不知道是否有比较可靠的遍历森林节点的方法。<br>所以这里尝试使用一直比较笨拙的方法来遍历Model。</p>
+<p>基本的思路是：</p>
+<ol>
+<li>获取所有的目标Model（即要生成数据的Model);</li>
+<li>获取目标Model所有依赖的Model，生成一个list；</li>
+<li>生成字典<code>init_target</code>，key为Model名，value为依赖Model组成的list；</li>
+<li>维护一个Model集合<code>initialized</code>，用来表示以及完成数据生成的Model；</li>
+<li>将所有目标外的Model添加进<code>initialized</code>集合（默认不需要生成数据的Model以及有可用数据）；</li>
+<li>遍历<code>init_target</code>，如果这个Model的依赖都在<code>initialized</code>中，则完成这个Model的数据生成，并将这个Model从<code>init_target</code>去除，加入到<code>initialized</code>中；</li>
+<li>重复步骤6，直到<code>init_target</code>为空。</li>
+</ol>
+<h2 id="遇到的坑"><a href="#遇到的坑" class="headerlink" title="遇到的坑"></a>遇到的坑</h2><p>花了比估计要多的时间才完成这个小功能，主要是遇到了几个坑，希望之后能注意：</p>
+<ol>
+<li><p><code>Recursive relation</code>。在项目的model中存在到自己的外键。在最开始的实现中没有考虑到这一点，所以就形成了某个model依赖于自身，在生成数据的时候，导致无限循环；</p>
+</li>
+<li><p><code>Transaction</code>。主要是在编写测试的过程中遇到了这样一个问题。Django的TestCase类会将每个测试用例封装在一个transaction中，所以一旦测试用例中产生database相关的异常，这个测试用例对数据库所有的操作都会被回滚。由于回滚后就不存在transaction环境，所以即便是在代码中对异常进行了处理，产生异常之后的对数据库的query都会抛出<code>TransactionManagementError</code>异常。解决的方式是换用<code>TransactionTestCase</code>。</p>
+</li>
+</ol>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;最近在将Django编写的应用部署到其它服务器上的时候，需要生成DB中的演示数据。由于演示数据生成函数需要在Model上逐个调用；同时Model之前存在依赖关系（&lt;code&gt;One-to-One&lt;/code&gt;, &lt;code&gt;One-to-Many&lt;/code&gt;等关系），对数
+    
+    </summary>
+    
+      <category term="Django" scheme="https://resettingmq.github.io/categories/Django/"/>
+    
+    
+      <category term="Django" scheme="https://resettingmq.github.io/tags/Django/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>DataTables utils 开发笔记 - 给数据行添加单击事件处理</title>
+    <link href="https://resettingmq.github.io/2017/07/09/datatables-utils-add-row-click/"/>
+    <id>https://resettingmq.github.io/2017/07/09/datatables-utils-add-row-click/</id>
+    <published>2017-07-09T00:59:15.000Z</published>
+    <updated>2017-07-09T16:16:13.832Z</updated>
+    
+    <content type="html"><![CDATA[<p>有一个常用的场景：用户在DataTables所展示的数据行的某个地方单击，会发送请求到server请求数据行对应数据的详细信息。要实现这个需求，就需要我们对DataTables渲染得到的表格添加单击事件处理。</p>
+<h2 id="关于pk值的指定以及渲染"><a href="#关于pk值的指定以及渲染" class="headerlink" title="关于pk值的指定以及渲染"></a>关于pk值的指定以及渲染</h2><p>我们还需要在DataTables渲染的数据项中增加数据对应的pk值，使得在发送请求时，能够指定唯一对应的数据项。</p>
+<p>具体的设计目标：</p>
+<ol>
+<li><p>pk键的名称使用<code>dt_rowId</code>作为名称在<code>ModelDataTables</code>的子类中的类属性指定；如果没有指定的情况下，默认为<code>pk</code>；</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># utils/utils.py</span></div><div class="line"></div><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">ModelDataTable</span><span class="params">(metaclass=ModelDataTableMetaClass)</span>:</span></div><div class="line">    dt_rowId = <span class="string">'pk'</span></div><div class="line">    <span class="comment"># ... some other code ...</span></div></pre></td></tr></table></figure>
+</li>
+<li><p>根据<code>dt_rowId</code>的值自动在<code>ModelDataTables</code>的子类中添加一个<code>DataTablesColumn</code>对象，并于对应的model field相关联；</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># utils/utils.py</span></div><div class="line"></div><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">ModelDataTableMetaClass</span><span class="params">(type)</span>:</span></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__new__</span><span class="params">(mcls, name, bases, attrs)</span>:</span></div><div class="line">        <span class="comment"># ... some code ...</span></div><div class="line">        <span class="keyword">for</span> name, value <span class="keyword">in</span> atttrs.items():</div><div class="line">            <span class="keyword">if</span> name.startswith(<span class="string">'dt_'</span>):</div><div class="line">                attr_name = name.split(<span class="string">'dt_'</span>, <span class="number">1</span>)[<span class="number">1</span>]</div><div class="line">                <span class="keyword">if</span> attr_name == <span class="string">'rowId'</span> <span class="keyword">and</span> value <span class="keyword">is</span> <span class="keyword">not</span> <span class="keyword">None</span>:</div><div class="line">                    <span class="comment"># ... some type-check code ...</span></div><div class="line">                    <span class="keyword">if</span> value == <span class="string">'pk'</span>:</div><div class="line">                        pk_field = _get_field(model, <span class="string">'id'</span>)</div><div class="line">                    <span class="keyword">else</span>:</div><div class="line">                        pk_field = _get_field(model, value)</div><div class="line">                    <span class="keyword">if</span> pk_field <span class="keyword">is</span> <span class="keyword">not</span> <span class="keyword">None</span>:</div><div class="line">                        pk_column = DataTablesColumn.get_instance_from_field(pk_field)</div><div class="line">                        pk_column.name = value</div><div class="line">                        d[<span class="string">'pk_column'</span>] = pk_column</div><div class="line">        <span class="comment"># ... some other code ...</span></div></pre></td></tr></table></figure>
+</li>
+<li><p>返回的数据中包含pk键值对；但是返回的HTML table header中不包含pk的列。</p>
+</li>
+</ol>
+<h2 id="Javascript的生成"><a href="#Javascript的生成" class="headerlink" title="Javascript的生成"></a>Javascript的生成</h2><p>除了在DataTables实例中加入了pk信息，还需要在前端的Javascript代码中添加单击列的事件。最直观的方便便是通过jQuery语法对<code>tr</code>DOM元素添加事件处理程序。在该事件处理函数中，获取对应行的pk信息，并对指定URL发起请求。</p>
+<p>pk值可以通过DataTables row对象的id()方法获取；<br>URL请求的URL可以在<code>ModelDataTable.Meta.detail_url_format</code>中指定（该参数的介绍，请参见<a href="/2017/07/06/datatabels-utils">之前文章</a>）。</p>
+<p>在没有设置<code>ModelDataTable.Meta.detail_url_format</code>的情况下，<code>render_js_script</code>自定义模板标签的输出中就不会包含注册<code>tr</code>元素单击事件的代码。在模板标签的代码中，这是通过<code>ModelDataTable.handle_row_click</code>属性来判断的。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># utils/utils.py</span></div><div class="line"></div><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">ModelDataTableMetaClass</span><span class="params">(type)</span>:</span></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__new__</span><span class="params">(mcls, name, bases, attrs)</span>:</span></div><div class="line">        <span class="comment"># ... some code ...</span></div><div class="line">        meta = attrs.get(<span class="string">'Meta'</span>)</div><div class="line">        detail_url_format = getattr(meta, <span class="string">'detail_url_format'</span>, <span class="keyword">None</span>)</div><div class="line">        <span class="keyword">if</span> detail_url_format <span class="keyword">is</span> <span class="keyword">None</span>:</div><div class="line">            d[<span class="string">'handle_row_click'</span>] = <span class="keyword">False</span></div><div class="line">        <span class="keyword">else</span>:</div><div class="line">            <span class="keyword">if</span> <span class="keyword">not</span> isinstance(detail_url_format, str)</div><div class="line">                <span class="keyword">raise</span> ImproperlyConfigured(<span class="string">'Some error message...'</span>)</div><div class="line">            d[<span class="string">'handle_row_click'</span>] = <span class="keyword">True</span></div><div class="line">            d[<span class="string">'detail_url_format'</span>] = detail_url_format</div><div class="line">        <span class="comment"># ... some other code ...</span></div></pre></td></tr></table></figure>
+<p>模板标签部分大致的实现如下：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># utils/templatetags/datatables_widget.py</span></div><div class="line"></div><div class="line"><span class="comment"># ... some code ...</span></div><div class="line"></div><div class="line"><span class="meta">@register.inclusion_tag('dt_template/dt_jsscript.html')</span></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">render_js_script</span><span class="params">(dt_config)</span>:</span></div><div class="line">    <span class="keyword">return</span> &#123;<span class="string">'dt_config'</span>: dt_config&#125;</div><div class="line"></div><div class="line"><span class="meta">@register.simple_tag(takes_context=True)</span></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">detail_url</span><span class="params">(context, id_identifier)</span>:</span></div><div class="line">    detail_url_format = context[<span class="string">'dt_config'</span>].detail_url_format</div><div class="line">    tokens = detail_url_format.split(<span class="string">'&#123;&#125;'</span>)</div><div class="line">    tokens = [<span class="string">'"&#123;&#125;"'</span>.format(token) <span class="keyword">for</span> token <span class="keyword">in</span> tokens]</div><div class="line">    tokens.insert(<span class="number">1</span>, id_identifier)</div><div class="line">    <span class="keyword">return</span> mark_safe(<span class="string">' + '</span>.join(tokens))</div></pre></td></tr></table></figure>
+<p>应用的template tags 模板<br><figure class="highlight javascript"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line">&#123;% load datatables_widget %&#125;</div><div class="line">&lt;script type=<span class="string">"text/javascript"</span>&gt;</div><div class="line">    $(<span class="built_in">document</span>).ready(<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</div><div class="line">        <span class="keyword">var</span> dt_inst = $(<span class="string">"#&#123;&#123; dt_config.table_id &#125;&#125;"</span>).DataTable(</div><div class="line">            &#123;&#123; dt_config.get_dt_config &#125;&#125;</div><div class="line">        );</div><div class="line"></div><div class="line">        &#123;% <span class="keyword">if</span> dt_config.handle_row_clikc %&#125;</div><div class="line">        dt_inst.on(<span class="string">'click'</span>, <span class="string">'tbody tr'</span>, <span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</div><div class="line">            <span class="keyword">var</span> row_id = dt_inst.row(<span class="keyword">this</span>).id();</div><div class="line">            <span class="built_in">window</span>.location.href = &#123;% detail_url <span class="string">"row_id"</span> %&#125;;</div><div class="line">        &#125;);</div><div class="line">        &#123;% endif %&#125;</div><div class="line">    &#125;);</div><div class="line">&lt;/script&gt;</div></pre></td></tr></table></figure></p>
+<p>最后实现的<code>detail_url</code> template tag实现将保存<code>row_id</code>的<strong><em>变量名</em></strong>嵌入到<code>detail_url_format</code>中，生成Javascript代码。因为传入的时变量名字符串，使用起来有些别扭</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;有一个常用的场景：用户在DataTables所展示的数据行的某个地方单击，会发送请求到server请求数据行对应数据的详细信息。要实现这个需求，就需要我们对DataTables渲染得到的表格添加单击事件处理。&lt;/p&gt;
+&lt;h2 id=&quot;关于pk值的指定以及渲染&quot;&gt;&lt;a hre
+    
+    </summary>
+    
+      <category term="Django" scheme="https://resettingmq.github.io/categories/Django/"/>
+    
+    
+      <category term="Django" scheme="https://resettingmq.github.io/tags/Django/"/>
+    
+      <category term="DataTables" scheme="https://resettingmq.github.io/tags/DataTables/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>在Django-DataTables utils中添加搜索、排序、分页等功能</title>
+    <link href="https://resettingmq.github.io/2017/07/07/datatables-utils-searchable-orderable/"/>
+    <id>https://resettingmq.github.io/2017/07/07/datatables-utils-searchable-orderable/</id>
+    <published>2017-07-07T06:34:53.000Z</published>
+    <updated>2017-07-08T13:25:24.763Z</updated>
+    
+    <content type="html"><![CDATA[<p>在前面的文章中提到了Django-DataTables utils关于搜索和排序的设计目标。</p>
+<p>当DataTables运行在非<code>serverSide</code>模式下时，搜索、排序以及分页由DataTables在前端实现，后端代码不需要负责业务处理。但是当DataTables为<code>serverSide</code>方式时，所有的查询业务都发送至后端处理。</p>
+<p>为了应对这种情况，需要在后端模块中加入相应的逻辑。</p>
+<h2 id="搜索功能"><a href="#搜索功能" class="headerlink" title="搜索功能"></a>搜索功能</h2><p>当<code>DataTables</code>工作于<code>serverSide</code>方式下时，会通过url query参数传递相关的搜索以及排序信息。后台获取这些信息，处理数据，再将数据转换成JSON返回。</p>
+<h2 id="分页功能"><a href="#分页功能" class="headerlink" title="分页功能"></a>分页功能</h2><p>在<code>serverSide</code>模式下，DataTables通过<code>start</code>以及<code>length</code>请求参数指定请求的数据范围。其中<code>start</code>指定开始的数据项的下标（从0开始计数），<code>length</code>指定请求数据的长度。</p>
+<p>由于Django <code>MultipleObjectsMixin</code>中的分页功能基于<code>django.core.paginator</code>，而这个Django内建的<code>paginator</code>是通过数据页的编号来指定分页数据的。为了与<code>DataTables</code>的请求参数相匹配，并没有使用这个内建的<code>paginator</code>。</p>
+<p>实现的逻辑很简单，在<code>DataTablesMixin.get_json_context_data()</code>这个方法中，对进过搜索、排序后的结果进行截取即可。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">DataTablesMixin</span><span class="params">(JsonResponseMixin, JsonContextMixin)</span>:</span></div><div class="line"></div><div class="line">    <span class="comment"># ... some code ...</span></div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get_json_context_data</span><span class="params">(self, http_queryset=None)</span>:</span></div><div class="line"></div><div class="line">        <span class="comment"># ... some code ...</span></div></pre></td></tr></table></figure>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;在前面的文章中提到了Django-DataTables utils关于搜索和排序的设计目标。&lt;/p&gt;
+&lt;p&gt;当DataTables运行在非&lt;code&gt;serverSide&lt;/code&gt;模式下时，搜索、排序以及分页由DataTables在前端实现，后端代码不需要负责业务处理。
+    
+    </summary>
+    
+      <category term="Django" scheme="https://resettingmq.github.io/categories/Django/"/>
+    
+    
+      <category term="Django" scheme="https://resettingmq.github.io/tags/Django/"/>
+    
+      <category term="DataTables" scheme="https://resettingmq.github.io/tags/DataTables/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>template_tags</title>
+    <link href="https://resettingmq.github.io/2017/07/06/template-tags/"/>
+    <id>https://resettingmq.github.io/2017/07/06/template-tags/</id>
+    <published>2017-07-06T06:15:53.000Z</published>
+    <updated>2017-07-06T14:25:53.832Z</updated>
+    
+    <content type="html"><![CDATA[<p>除了DataTables相关的后台部分，还需要将完成DataTables在template中相关的渲染：例如HTML table元素以及javascript代码。</p>
+<p>在这里通过自定义Django template tags来实现在template中输出相关的信息。</p>
+<p>在上一篇文章介绍的DataTables Utils中，通过<code>ModelDataTables</code>可以获取所有DataTables在模板中渲染所需要信息，例如table_id，数据表的表头，以及DataTables初始化代码中的参数等等。</p>
+<p>所以，我们只需要在自定义template tags中引入<code>ModelDataTables</code>相关的context，渲染自定义template tags相关的模板即可。</p>
+<h2 id="HTML-table元素"><a href="#HTML-table元素" class="headerlink" title="HTML table元素"></a>HTML table元素</h2><figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@register.inclusion_tag('dt_templates/dt_tabel.html')</span></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">render_table</span><span class="params">(dt_config)</span>:</span></div></pre></td></tr></table></figure>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;除了DataTables相关的后台部分，还需要将完成DataTables在template中相关的渲染：例如HTML table元素以及javascript代码。&lt;/p&gt;
+&lt;p&gt;在这里通过自定义Django template tags来实现在template中输出相关的信息
+    
+    </summary>
+    
+      <category term="Django" scheme="https://resettingmq.github.io/categories/Django/"/>
+    
+    
+      <category term="Django" scheme="https://resettingmq.github.io/tags/Django/"/>
+    
+      <category term="DataTables" scheme="https://resettingmq.github.io/tags/DataTables/"/>
+    
+      <category term="template" scheme="https://resettingmq.github.io/tags/template/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>datatabels_utils 开发笔记 - 整体架构</title>
+    <link href="https://resettingmq.github.io/2017/07/06/datatabels-utils/"/>
+    <id>https://resettingmq.github.io/2017/07/06/datatabels-utils/</id>
+    <published>2017-07-06T02:11:51.000Z</published>
+    <updated>2017-07-09T16:16:41.027Z</updated>
+    
+    <content type="html"><![CDATA[<h2 id="目标功能"><a href="#目标功能" class="headerlink" title="目标功能"></a>目标功能</h2><ol>
+<li>通过ModelDataTables类定义，设置DataTables所需要的meta信息；</li>
+<li>通过template tags，能够在template中输出HTML table表头；</li>
+<li>通过template tags，能够在template中生成javascript代码段；</li>
+</ol>
+<h2 id="ModelDataTables类"><a href="#ModelDataTables类" class="headerlink" title="ModelDataTables类"></a>ModelDataTables类</h2><p>类似于<code>Django</code>的<code>ModelForm</code>，<code>ModelDataTables</code>能够：</p>
+<ol>
+<li>通过<code>Meta</code>类的定义，从<code>model</code>中自动生成所需要的<code>DataTables column</code>信息；</li>
+<li>在该类的子类中，能够声明式的建立<code>DataTables column</code>信息；</li>
+</ol>
+<p><code>DataTables column</code>信息对应<code>DataTables</code>的<code>columns</code>配置项。其它的配置项（例如<code>serverSide</code>, <code>ajax</code>等）通过类属性的方式定义。</p>
+<p>为了避免与其它类属性产生混淆，约定这些类属性以<code>dt_</code>为前缀。</p>
+<p>为了能够在template中生成对<code>DataTables</code>的初始化配置数据，还需要能够将这些配置数据以正确的结构构建成<code>dict</code>形式，方便在模板中输出。</p>
+<p>由于<code>Django</code>没有提供内建的<code>JSON filter</code>，所以还需要实现这个<code>filter</code>（具体的实现在下一篇文章中提出）。（当然也可以在这个类中实现方法，将配置<code>dict</code>序列化成<code>JSON</code>字符串后再在template中直接输出。</p>
+<p><code>Meta class</code>中的属性：</p>
+<ul>
+<li>model（必须要定义）</li>
+<li>column_order</li>
+<li>fields</li>
+<li>detail_url_format<br>  这个值是一个接受一个位置格式化参数的字符串。如果没有指定这个值，则前端输出的代码不会自动添加对于DataTables行的单击处理事件；如果指定了这个值，就会在前端javascript代码中添加DataTables行的单击处理事件（需要通过template tags输出），并且在单击行时，会发送请求到这个值指定的url。</li>
+</ul>
+<p>可以通过元类来实现这些功能。</p>
+<h3 id="ModelDataTablesMetaClass"><a href="#ModelDataTablesMetaClass" class="headerlink" title="ModelDataTablesMetaClass"></a>ModelDataTablesMetaClass</h3><p>这个类作为<code>ModelDataTables</code>的元类。<br>通过这个元类，<br>能够检查<code>Meta class</code>以及定义在其中的<code>model</code>等属性；<br>能够处理<code>ModelDataTables</code>子类中声明的<code>ModelDataTablesColumn</code>类型的属性，将其作为配置数据；<br>能够保持<code>ModelDataTables</code>子类中声明属性的顺序；<br>为<code>ModelDataTables</code>的子类在声明时生成一个包含随机数的id；</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div></pre></td><td class="code"><pre><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">ModelDataTablesMetaClass</span><span class="params">(type)</span>:</span></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__new__</span><span class="params">(mcls, name, bases, attrs)</span>:</span></div><div class="line">        <span class="comment"># ... some code ...</span></div><div class="line">        d = dict(attrs)</div><div class="line">        declared_columns = []</div><div class="line">        <span class="keyword">for</span> name, value <span class="keyword">in</span> attrs.items():</div><div class="line">            <span class="keyword">if</span> isinstance(value, DataTablesColumn):</div><div class="line">                <span class="comment"># 为了能处理对related model的处理，属性名采用了类似Django的</span></div><div class="line">                <span class="comment"># attr__related_attr的属性路径表达方式.</span></div><div class="line">                <span class="comment"># 下面这个函数实现了根据属性路径获取到相应field的功能</span></div><div class="line">                field = _get_field(model, name)</div><div class="line">                <span class="keyword">if</span> field <span class="keyword">is</span> <span class="keyword">None</span>:</div><div class="line">                    <span class="keyword">continue</span>;</div><div class="line">                value.name = name</div><div class="line">                value.field = field</div><div class="line">                declared_columns.append((name, value))</div><div class="line">                d.pop(name)</div><div class="line">        <span class="comment"># 采用OrderedDict保存，方便查询的同时，保证顺序</span></div><div class="line">        d[<span class="string">'_declared_columns'</span>] = OrderedDict(declared_columns)</div><div class="line"></div><div class="line">        <span class="comment"># 采用类似的方法，处理在Meta中指定的fields信息</span></div><div class="line">        <span class="comment"># ...</span></div><div class="line">        <span class="comment"># ...</span></div><div class="line"></div><div class="line">        <span class="comment"># ... some other code ...</span></div><div class="line"></div><div class="line"><span class="meta">    @classmethod</span></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__prepare__</span><span class="params">(mcls, name, bases)</span>:</span></div><div class="line">        <span class="comment"># 重写这个方法，返回OrderedDict的实例，</span></div><div class="line">        <span class="comment"># 保证类声明中属性定义的顺序</span></div><div class="line">        <span class="keyword">return</span> OrderedDict()</div></pre></td></tr></table></figure>
+<h2 id="DataTables-columns-顺序"><a href="#DataTables-columns-顺序" class="headerlink" title="DataTables columns 顺序"></a>DataTables columns 顺序</h2><p>在HTML table中column需要按照指定顺序生成header。<br>（返回的JSON数据没有顺序信息，这些数据会根据key映射到对应的HTML table column中）</p>
+<ol>
+<li>可以通过column_order list指定顺序，这种情况下，<code>column_order</code>需要包含所有声明的column以及Meta中指定的column；</li>
+<li>如果没有指定column_order，则声明的column排在Meta中指定column的前面；</li>
+</ol>
+<h2 id="DataTablesColumn类"><a href="#DataTablesColumn类" class="headerlink" title="DataTablesColumn类"></a>DataTablesColumn类</h2><p><code>DataTablesColumn</code>类的实例用来保存DataTables中列的配置信息。</p>
+<p>在通过声明的方式生成<code>DataTablesColumn</code>实例的情况下，这些信息可以通过<code>DataTablesColumn</code>类初始化的关键字参数指定；</p>
+<p>而在通过<code>ModelDataTable</code>子类的<code>Meta</code>隐式自动生成<code>DataTableColumn</code>实例的时候，这些配置信息部分从绑定到的field实例信息获取。</p>
+<p>可惜的是，<code>Django</code>内建的<code>Field</code>类型初始化时并不接受额外的关键字参数，除非使用自定义<code>Field</code>类型。所以不能通过在<code>Model-Field</code>定义的时候指定<code>DataTables</code>列相关的配置参数。</p>
+<p><code>DataTablesColumn.title</code><br>用来指定HTML table的header部分显示的信息。<br>在没有设置的时候，默认获取对应field实例的verbose_name属性。</p>
+<p><code>DataTablesColumn.width</code><br>指定column的宽度</p>
+<p><code>DataTablesColumn.searchable</code><br>指定column是否可以被搜索。<br>默认为<code>True</code>。</p>
+<p><code>DataTablesColumn.orderable</code><br>指定column是否可以排序。<br>默认为<code>True</code>。</p>
+<p>下面是部分<code>DataTableColumn</code>类的定义（只包含对<code>title</code>配置的处理）<br><figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div></pre></td><td class="code"><pre><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">DataTableColumn</span>:</span></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, title=None, field=None, **kwargs)</span>:</span></div><div class="line">        self.title = title</div><div class="line">        <span class="keyword">if</span> field <span class="keyword">is</span> <span class="keyword">not</span> <span class="keyword">None</span>:</div><div class="line">            self._initialize_from_field(field)</div><div class="line">        <span class="keyword">else</span>:</div><div class="line">            self._bound = <span class="keyword">False</span></div><div class="line"></div><div class="line"><span class="meta">    @property</span></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">field</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="comment"># 不能直接读field属性</span></div><div class="line">        <span class="keyword">raise</span> AttributeError(<span class="string">'warning info ....'</span>)</div><div class="line"></div><div class="line"><span class="meta">    @field.setter</span></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">field</span><span class="params">(self, value)</span>:</span></div><div class="line">        <span class="comment"># 绑定到对应field实例</span></div><div class="line">        self._initialize_from_field(value)</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">_initialize_from_field</span><span class="params">(self, field)</span>:</span></div><div class="line">        <span class="comment"># ... some code ...</span></div><div class="line">        <span class="keyword">if</span> self.title <span class="keyword">is</span> <span class="keyword">None</span>:</div><div class="line">            <span class="comment"># 如果初始化时没有指定title，则使用绑定field的verbose name</span></div><div class="line">            self.title = field.verbose_name</div><div class="line">        self._field = field</div><div class="line">        self._bound = <span class="keyword">True</span></div><div class="line"></div><div class="line"><span class="meta">    @classmethod</span></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get_instance_from_field</span><span class="params">(cls, field)</span>:</span></div><div class="line">        <span class="comment"># 类方法，根据指定的field生成实例</span></div><div class="line">        <span class="keyword">return</span>  cls(field=field)</div><div class="line"></div><div class="line">    <span class="comment"># ... some other method definitions ...</span></div></pre></td></tr></table></figure></p>
+<h2 id="Todos"><a href="#Todos" class="headerlink" title="Todos"></a>Todos</h2><ol>
+<li>可以对dt_ajax参数设置dict；</li>
+</ol>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h2 id=&quot;目标功能&quot;&gt;&lt;a href=&quot;#目标功能&quot; class=&quot;headerlink&quot; title=&quot;目标功能&quot;&gt;&lt;/a&gt;目标功能&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;通过ModelDataTables类定义，设置DataTables所需要的meta信息；&lt;/li&gt;
+&lt;li&gt;通过
+    
+    </summary>
+    
+      <category term="Django" scheme="https://resettingmq.github.io/categories/Django/"/>
+    
+    
+      <category term="Django" scheme="https://resettingmq.github.io/tags/Django/"/>
+    
+      <category term="DataTables" scheme="https://resettingmq.github.io/tags/DataTables/"/>
+    
+  </entry>
+  
+  <entry>
     <title>DataTables with Django</title>
     <link href="https://resettingmq.github.io/2017/07/05/datatables-with-django/"/>
     <id>https://resettingmq.github.io/2017/07/05/datatables-with-django/</id>
     <published>2017-07-05T06:12:33.000Z</published>
-    <updated>2017-07-05T10:22:18.936Z</updated>
+    <updated>2017-07-08T01:38:59.148Z</updated>
     
     <content type="html"><![CDATA[<p><code>DataTables</code>是前端很使用的一个库，能够已列表呈现数据。它具有很高的定制性，能够从多种数据源读取数据，并能提供分页，排序，搜索等功能。</p>
 <p>这里就试图结合<code>Django</code>的<code>generic views</code>, <code>custom template tags</code>等特性，编写简单的接口，使得<code>DataTables</code>的配置更加方便直观，提高代码的可重用性。</p>
@@ -45,6 +474,15 @@
 <p>同时，<code>DataTablesMixin</code>还定义了<code>get_dt_column_fields()</code>方法，在没有指定<code>dt_column_fields</code>属性的时候，该函数会试图从<code>ListView</code>的<code>query_set</code>中获取<code>model</code>，再从<code>model.DataTablesMeta.column_fields</code>中获取限定<code>JSON</code>返回的字符串列表。</p>
 <p>如果这两种情况下都没有获取成功，则最终返回的<code>JSON</code>数据会包含所有的<code>fields</code>。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div></pre></td><td class="code"><pre><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">DataTablesMixin</span><span class="params">(JsonResponseMixin, JsonContextMixin)</span>:</span></div><div class="line">    dt_data_src = <span class="string">'data'</span></div><div class="line">    dt_column_fields = <span class="keyword">None</span></div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get_dt_column_fields</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="keyword">if</span> self.dt_column_fields <span class="keyword">is</span> <span class="keyword">not</span> <span class="keyword">None</span>:</div><div class="line">            <span class="keyword">return</span> self.dt_column_fields</div><div class="line">        <span class="keyword">try</span>:</div><div class="line">            model = self.get_queryset().model</div><div class="line">            dt_column_fields = model.DataTablesMeta.column_fields.keys()</div><div class="line">        <span class="keyword">except</span> AttributeError:</div><div class="line">            <span class="keyword">return</span> []</div><div class="line">        <span class="keyword">else</span>:</div><div class="line">            <span class="keyword">return</span> dt_column_fields</div></pre></td></tr></table></figure>
+<h2 id="对DataTables的serverSide模式下请求的处理"><a href="#对DataTables的serverSide模式下请求的处理" class="headerlink" title="对DataTables的serverSide模式下请求的处理"></a>对<code>DataTables</code>的<code>serverSide</code>模式下请求的处理</h2><p>在<code>serverSide</code>模式下，客户端发出的ajax请求包含一系列<code>query args</code>，对返回的结果集进行限定（例如分页，排序，搜索等等）。请求处理函数中，需要对这些<code>query args</code>进行处理。</p>
+<p>所以，需要在get()函数中，将<code>request.GET</code>作为参数传入到<code>get_json_context_data()</code>中，在<code>get_json_context_data()</code>函数中集中对数据进行查询等处理。</p>
+<p>同时，DataTables还要求后端返回一些额外数据，用于数据验证以及前端的显示（例如分页信息）。这些信息包括：</p>
+<ul>
+<li><code>draw</code></li>
+<li><code>recordsTotal</code></li>
+<li><code>recordsFiltered</code></li>
+<li><code>error</code>（仅在由错误的情况下返回错误相关信息）<br>因此，需要在后端代码中生成这些信息并且正确返回。</li>
+</ul>
 ]]></content>
     
     <summary type="html">
@@ -94,9 +532,9 @@
       <category term="Flask" scheme="https://resettingmq.github.io/categories/Flask/"/>
     
     
-      <category term="Python" scheme="https://resettingmq.github.io/tags/Python/"/>
-    
       <category term="Flask" scheme="https://resettingmq.github.io/tags/Flask/"/>
+    
+      <category term="Python" scheme="https://resettingmq.github.io/tags/Python/"/>
     
       <category term="TDD" scheme="https://resettingmq.github.io/tags/TDD/"/>
     
@@ -156,11 +594,11 @@
       <category term="Flask" scheme="https://resettingmq.github.io/categories/Flask/"/>
     
     
-      <category term="Python" scheme="https://resettingmq.github.io/tags/Python/"/>
-    
       <category term="Flask" scheme="https://resettingmq.github.io/tags/Flask/"/>
     
       <category term="Werkzeug" scheme="https://resettingmq.github.io/tags/Werkzeug/"/>
+    
+      <category term="Python" scheme="https://resettingmq.github.io/tags/Python/"/>
     
   </entry>
   
