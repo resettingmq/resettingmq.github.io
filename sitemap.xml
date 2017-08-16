@@ -2,9 +2,37 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
+    <loc>https://resettingmq.github.io/2017/07/06/datatables-with-django/</loc>
+    
+    <lastmod>2017-08-16T06:29:41.903Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://resettingmq.github.io/2017/07/09/datatables-utils-add-row-click/</loc>
+    
+    <lastmod>2017-08-16T06:29:17.447Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://resettingmq.github.io/2017/07/07/datatables-utils-searchable-orderable/</loc>
+    
+    <lastmod>2017-08-16T06:29:10.262Z</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://resettingmq.github.io/2017/07/06/template-tags/</loc>
     
-    <lastmod>2017-08-16T03:51:34.735Z</lastmod>
+    <lastmod>2017-08-16T06:28:55.769Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://resettingmq.github.io/2017/07/06/datatabels-utils/</loc>
+    
+    <lastmod>2017-08-16T06:28:36.382Z</lastmod>
     
   </url>
   
@@ -26,34 +54,6 @@
     <loc>https://resettingmq.github.io/2017/07/19/django-custom-FormField/</loc>
     
     <lastmod>2017-08-14T16:21:04.252Z</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>https://resettingmq.github.io/2017/07/06/datatabels-utils/</loc>
-    
-    <lastmod>2017-07-09T16:16:41.027Z</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>https://resettingmq.github.io/2017/07/09/datatables-utils-add-row-click/</loc>
-    
-    <lastmod>2017-07-09T16:16:13.832Z</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>https://resettingmq.github.io/2017/07/07/datatables-utils-searchable-orderable/</loc>
-    
-    <lastmod>2017-07-08T13:25:24.763Z</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>https://resettingmq.github.io/2017/07/05/datatables-with-django/</loc>
-    
-    <lastmod>2017-07-08T01:38:59.148Z</lastmod>
     
   </url>
   
