@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://resettingmq.github.io/"/>
-  <updated>2017-08-16T02:44:46.240Z</updated>
+  <updated>2017-08-17T07:39:40.003Z</updated>
   <id>https://resettingmq.github.io/</id>
   
   <author>
@@ -14,6 +14,37 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>Django FormField 实现笔记 三</title>
+    <link href="https://resettingmq.github.io/2017/08/17/formfield-foreign-key/"/>
+    <id>https://resettingmq.github.io/2017/08/17/formfield-foreign-key/</id>
+    <published>2017-08-17T06:24:10.000Z</published>
+    <updated>2017-08-17T07:39:40.003Z</updated>
+    
+    <content type="html"><![CDATA[<p>这边文章在之前FormField功能的基础之上，实现对<code>Django ForeignKey</code>类型对应FormField的支持。</p>
+<h2 id="instance属性"><a href="#instance属性" class="headerlink" title="instance属性"></a><code>instance</code>属性</h2><p>之前文章已经分析过，外层ModelForm会将<code>instance</code>初始化参数根据<code>Meta.fields</code>设置的fields范围，转换成<code>dict</code>类型，与<code>initial</code>初始化参数合并之后作为Form对象的<code>initial</code>初始化参数。</p>
+<p>在这个过程中，对于<code>ForeignKey</code>属性，Django的会获取其对应的关联对象的<code>id</code>值作为<code>initial</code>。这对于<code>ModelChoiceField</code>类型的对象是逻辑正确的。但是对于<code>FormField</code>类型的对象则是不合适的（我们期望<code>FormField</code>获取到的<code>initial</code>是一个dict）。</p>
+<p>所以，这里在<code>ModelFormFieldSupportModelFormMeta</code>中对<code>Meta.fields</code>进行处理。使得<code>ModelFormFieldSupportMixin</code>的子类如果在定义中，如果声明式的定义<code>ForeignKey</code> field的类型为<code>FormField</code>类型，则将fields中响应的field删除，避免其生成的<code>initial</code>值对内层Form的初始化产生影响。</p>
+<h2 id="Foreign-Key对应对象的保存"><a href="#Foreign-Key对应对象的保存" class="headerlink" title="Foreign Key对应对象的保存"></a><code>Foreign Key</code>对应对象的保存</h2><p>同样，之前文章分析过，Django ORM并没有对整个ORM catelog的状态进行管理，Django ORM的保存动作仅仅作用在单个对象上，并不会处理关联对象的保存。</p>
+<p>所以需要手动处理<code>Foreign Key</code>关联对象保存，并保证它们之间正确的保存顺序。</p>
+<p>为了保证<code>Foreign Key</code>关联对象保存发生在外层Form对象之前，需要修改<code>ModelFormFieldSupportMixin.save()</code>方法。</p>
+<p>同时，为了能够获取到<code>obverse relation</code>(其中包含了<code>Foreign key</code> relation)对应的列，需要在<code>ModelFormFieldSupportModelFormMeta</code>中建立一个保存<code>obverse relation fields</code>的list。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;这边文章在之前FormField功能的基础之上，实现对&lt;code&gt;Django ForeignKey&lt;/code&gt;类型对应FormField的支持。&lt;/p&gt;
+&lt;h2 id=&quot;instance属性&quot;&gt;&lt;a href=&quot;#instance属性&quot; class=&quot;headerlin
+    
+    </summary>
+    
+      <category term="Django" scheme="https://resettingmq.github.io/categories/Django/"/>
+    
+    
+      <category term="Django" scheme="https://resettingmq.github.io/tags/Django/"/>
+    
+  </entry>
   
   <entry>
     <title>Django FormField 实现笔记 二</title>
@@ -331,11 +362,11 @@
   </entry>
   
   <entry>
-    <title>datatabels_utils 开发笔记 - 4. 添加搜索、排序、分页等功能</title>
+    <title>DataTables utils 开发笔记 - 4. 添加搜索、排序、分页等功能</title>
     <link href="https://resettingmq.github.io/2017/07/07/datatables-utils-searchable-orderable/"/>
     <id>https://resettingmq.github.io/2017/07/07/datatables-utils-searchable-orderable/</id>
     <published>2017-07-07T06:34:53.000Z</published>
-    <updated>2017-08-16T06:29:10.262Z</updated>
+    <updated>2017-08-16T06:33:19.760Z</updated>
     
     <content type="html"><![CDATA[<blockquote>
 <p>简单实例页面：<a href="http://django.resettingmq.top/client/" target="_blank" rel="external">客户-案件管理系统</a></p>
@@ -423,11 +454,11 @@
   </entry>
   
   <entry>
-    <title>datatabels_utils 开发笔记 - 2. 请求的处理</title>
+    <title>DataTables utils 开发笔记 - 2. 请求的处理</title>
     <link href="https://resettingmq.github.io/2017/07/06/datatables-with-django/"/>
     <id>https://resettingmq.github.io/2017/07/06/datatables-with-django/</id>
     <published>2017-07-06T06:12:33.000Z</published>
-    <updated>2017-08-16T06:29:41.903Z</updated>
+    <updated>2017-08-16T06:33:03.426Z</updated>
     
     <content type="html"><![CDATA[<blockquote>
 <p><a href="https://resettingmq.github.io/2017/07/06/datatabels-utils/">datatabels_utils 开发笔记 - 整体架构</a><br>简单实例页面：<a href="http://django.resettingmq.top/client/" target="_blank" rel="external">客户-案件管理系统</a></p>
@@ -501,11 +532,11 @@
   </entry>
   
   <entry>
-    <title>datatabels_utils 开发笔记 - 1. 整体架构</title>
+    <title>DataTables utils 开发笔记 - 1. 整体架构</title>
     <link href="https://resettingmq.github.io/2017/07/06/datatabels-utils/"/>
     <id>https://resettingmq.github.io/2017/07/06/datatabels-utils/</id>
     <published>2017-07-06T02:11:51.000Z</published>
-    <updated>2017-08-16T06:28:36.382Z</updated>
+    <updated>2017-08-16T06:32:54.749Z</updated>
     
     <content type="html"><![CDATA[<blockquote>
 <p>简单实例页面：<a href="http://django.resettingmq.top/client/" target="_blank" rel="external">客户-案件管理系统</a></p>
@@ -580,10 +611,10 @@
   
   <entry>
     <title>Werkzeug_Thread_Local学习</title>
-    <link href="https://resettingmq.github.io/2017/04/30/Werkzeug-Thread-Local%E5%AD%A6%E4%B9%A0/"/>
-    <id>https://resettingmq.github.io/2017/04/30/Werkzeug-Thread-Local学习/</id>
-    <published>2017-04-30T10:55:46.000Z</published>
-    <updated>2017-04-30T18:18:53.392Z</updated>
+    <link href="https://resettingmq.github.io/2017/05/30/Werkzeug-Thread-Local%E5%AD%A6%E4%B9%A0/"/>
+    <id>https://resettingmq.github.io/2017/05/30/Werkzeug-Thread-Local学习/</id>
+    <published>2017-05-30T10:55:46.000Z</published>
+    <updated>2017-08-24T05:19:45.594Z</updated>
     
     <content type="html"><![CDATA[<h2 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h2><p>在学习<code>Flask</code>的过程中，经常遇到<code>context</code>的这个概念。通过<code>app context</code>和<code>request context</code>，可以使不同请求之间的数据得到隔离。开发的过程中，只知道怎么使用这两个<code>context</code>，却不理解它们背后的运行机制以及使用的过程中的限制和注意点。借助这几天对<code>Flask</code>以及<code>Werkzeug</code>源码的初步阅读，希望能够更深入的理解它们。</p>
 <p>先看一下<a href="http://werkzeug.pocoo.org/docs/0.11/local/#werkzeug.local.LocalStack" target="_blank" rel="external"><code>Werkzeug official document</code></a>中的一些描述：</p>
@@ -642,10 +673,10 @@
   
   <entry>
     <title>flask分析_WSGI程序调用</title>
-    <link href="https://resettingmq.github.io/2017/04/29/flask%E5%88%86%E6%9E%90-WSGI%E7%A8%8B%E5%BA%8F%E8%B0%83%E7%94%A8/"/>
-    <id>https://resettingmq.github.io/2017/04/29/flask分析-WSGI程序调用/</id>
-    <published>2017-04-29T14:36:23.000Z</published>
-    <updated>2017-05-04T04:38:06.600Z</updated>
+    <link href="https://resettingmq.github.io/2017/05/29/flask%E5%88%86%E6%9E%90-WSGI%E7%A8%8B%E5%BA%8F%E8%B0%83%E7%94%A8/"/>
+    <id>https://resettingmq.github.io/2017/05/29/flask分析-WSGI程序调用/</id>
+    <published>2017-05-29T14:36:23.000Z</published>
+    <updated>2017-08-24T05:19:30.022Z</updated>
     
     <content type="html"><![CDATA[<h2 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h2><p>根据WSGI协议，<code>WSGI application</code>向<code>WSGI Server</code>提供一个可调用对象。当<code>WSGI Server</code>分发请求时，调用该对象，并将当前环境参数<code>environ</code>以及一个<code>callback</code>函数<code>start_response</code>传入该可调用对象。</p>
 <h2 id="Flask-Application调用入口"><a href="#Flask-Application调用入口" class="headerlink" title="Flask Application调用入口"></a><code>Flask Application</code>调用入口</h2><p>先从最简单的<code>WSGI application</code>入手：</p>
@@ -697,31 +728,11 @@
   </entry>
   
   <entry>
-    <title>flask分析_routing</title>
-    <link href="https://resettingmq.github.io/2017/04/27/flask%E5%88%86%E6%9E%90-routing/"/>
-    <id>https://resettingmq.github.io/2017/04/27/flask分析-routing/</id>
-    <published>2017-04-27T04:34:09.000Z</published>
-    <updated>2017-04-27T04:35:31.441Z</updated>
-    
-    <summary type="html">
-    
-    </summary>
-    
-      <category term="flask" scheme="https://resettingmq.github.io/categories/flask/"/>
-    
-    
-      <category term="python" scheme="https://resettingmq.github.io/tags/python/"/>
-    
-      <category term="flask" scheme="https://resettingmq.github.io/tags/flask/"/>
-    
-  </entry>
-  
-  <entry>
     <title>flask分析_import_name</title>
-    <link href="https://resettingmq.github.io/2017/04/27/flask%E5%88%86%E6%9E%90-import-name/"/>
-    <id>https://resettingmq.github.io/2017/04/27/flask分析-import-name/</id>
-    <published>2017-04-27T01:59:23.000Z</published>
-    <updated>2017-04-27T04:35:07.715Z</updated>
+    <link href="https://resettingmq.github.io/2017/05/27/flask%E5%88%86%E6%9E%90-import-name/"/>
+    <id>https://resettingmq.github.io/2017/05/27/flask分析-import-name/</id>
+    <published>2017-05-27T01:59:23.000Z</published>
+    <updated>2017-08-24T05:18:06.481Z</updated>
     
     <content type="html"><![CDATA[<h2 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h2><p>According to <a href="http://flask.pocoo.org/docs/0.12/quickstart/#quickstart" target="_blank" rel="external">Flask Quickstart</a>:</p>
 <blockquote>
@@ -765,10 +776,10 @@
   
   <entry>
     <title>lxml.html学习笔记</title>
-    <link href="https://resettingmq.github.io/2017/04/23/lxml-html%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/"/>
-    <id>https://resettingmq.github.io/2017/04/23/lxml-html学习笔记/</id>
-    <published>2017-04-23T13:25:16.000Z</published>
-    <updated>2017-04-24T16:04:24.928Z</updated>
+    <link href="https://resettingmq.github.io/2017/05/23/lxml-html%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/"/>
+    <id>https://resettingmq.github.io/2017/05/23/lxml-html学习笔记/</id>
+    <published>2017-05-23T13:25:16.000Z</published>
+    <updated>2017-08-24T05:19:58.106Z</updated>
     
     <content type="html"><![CDATA[<p>虽然Scrapy中采用了lxml作为xml/html的解析器，能够方便的解析xml/html文档树，但是在学习爬虫的时候，仍有时希望跳出Scrapy框架，写一些简单的爬虫或者对页面结构的测试。这个时候，就需要BetifulSoup/lxml/正则表达式这些工具了。</p>
 <p>这里简单的记录一下lxml.html库的api。</p>
@@ -794,7 +805,7 @@
 <p>  根据字符串参数内容判断，采用<code>document_fromstring</code>或者<code>fragment_fromstring</code>来解析字符串参数，返回一个HTML文档或者一个HTML元素。</p>
 </li>
 </ul>
-<h2 id="lxml-html-HtmlElement-的属于与方法"><a href="#lxml-html-HtmlElement-的属于与方法" class="headerlink" title="lxml.html.HtmlElement 的属于与方法"></a><code>lxml.html.HtmlElement</code> 的属于与方法</h2><p><code>lxml.html.HtmlElement</code>继承自<a href="http://lxml.de/api/lxml.etree.ElementBase-class.html" target="_blank" rel="external"><code>lxml.etree.ElementBase</code></a>和<a href="http://lxml.de/api/lxml.html.HtmlMixin-class.html" target="_blank" rel="external"><code>lxml.html.HtmlMixin</code></a>，所以<code>HtmlElement</code>对象中包含了一些修改HTML文档以及元素的方法。<br>这里仅介绍一些常用的爬虫相关的属性以及元素查询方法。</p>
+<h2 id="lxml-html-HtmlElement-的属性与方法"><a href="#lxml-html-HtmlElement-的属性与方法" class="headerlink" title="lxml.html.HtmlElement 的属性与方法"></a><code>lxml.html.HtmlElement</code> 的属性与方法</h2><p><code>lxml.html.HtmlElement</code>继承自<a href="http://lxml.de/api/lxml.etree.ElementBase-class.html" target="_blank" rel="external"><code>lxml.etree.ElementBase</code></a>和<a href="http://lxml.de/api/lxml.html.HtmlMixin-class.html" target="_blank" rel="external"><code>lxml.html.HtmlMixin</code></a>，所以<code>HtmlElement</code>对象中包含了一些修改HTML文档以及元素的方法。<br>这里仅介绍一些常用的爬虫相关的属性以及元素查询方法。</p>
 <ul>
 <li><code>find_class(class_name)</code></li>
 <li><code>find_rel_links(rel)</code></li>
@@ -816,44 +827,6 @@
     
     </summary>
     
-    
-  </entry>
-  
-  <entry>
-    <title>coroutine学习笔记</title>
-    <link href="https://resettingmq.github.io/2017/04/23/coroutine%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/"/>
-    <id>https://resettingmq.github.io/2017/04/23/coroutine学习笔记/</id>
-    <published>2017-04-23T09:33:51.000Z</published>
-    <updated>2017-04-27T02:00:05.000Z</updated>
-    
-    <content type="html"><![CDATA[<h2 id="前面的话"><a href="#前面的话" class="headerlink" title="前面的话"></a>前面的话</h2><p>这个星期在研究Scrapy media Pipeline源码 (<a href="https://github.com/scrapy/scrapy/blob/master/scrapy/pipelines/media.py" target="_blank" rel="external">scrapy.pipelines.images</a>)的时候，遇到文档中一直被跳过阅读的Deferred对象，于是就打算尝试去理解一下Twisted。但由于基础不过硬，在基本的事件驱动模型上都没有理解透彻，所以打算从异步编程的基础开始学习。</p>
-<p>之前在廖雪峰大师的博客中看了一遍异步IO相关的<a href="http://www.liaoxuefeng.com/wiki/0014316089557264a6b348958f449949df42a6d3a2e542c000/00143208573480558080fa77514407cb23834c78c6c7309000" target="_blank" rel="external">教程</a>,了解到了coroutine（协程）这样一个概念，这篇文章中打算记录一下学习过程中的心得。</p>
-<p>是不是很晕？我就这样很容易的从Scrapy源码被带到了coroutine，一向如此，看到不了解的东西就像去深究其中究竟，导致战线拉太长，效率不高，简单的东西没精通掌握，复杂的东西又没透彻学会。以后要学会适时忽略细节，在掌握整体之后再来深究部分。</p>
-<h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>协程的定义类似于普通函数的定义：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">coroutine_name</span><span class="params">()</span>:</span></div><div class="line">    <span class="comment"># defines your coroutine here.</span></div></pre></td></tr></table></figure></p>
-<p>但协程的执行过程与普通函数不同。</p>
-<p>普通函数的执行总是有一个入口，一次返回；但是协程的执行可以在其内部中断，由自己控制转到其它协程的代码中执行，之后在一定的时间返回到这个协程中继续执行。</p>
-<p>多个协程是在一个进程中运行的。</p>
-<h2 id="同其他常用异步技术的比较"><a href="#同其他常用异步技术的比较" class="headerlink" title="同其他常用异步技术的比较"></a>同其他常用异步技术的比较</h2><p>协程的这一个特点与多进程/多线程相似，但是不同的是多进程/多线程程序在运行过程中，进程/线程之间的切换是有OS底层来进行控制的（例如时间中断）；而协程切换的时机以及切换的目标是有程序自身进行控制的。</p>
-<p>由于多个协程运行与一个进程之中，<br>因此，不会存在同时写变量的冲突，不需要像多线程那样对共享资源进行加锁。</p>
-<p>同时协程也没有多进程/多线程程序的切换开销，执行效率更高。</p>
-<h2 id="Python对协程的支持"><a href="#Python对协程的支持" class="headerlink" title="Python对协程的支持"></a>Python对协程的支持</h2><p>由于协程的特点，要实现协程，很重要的一个方面就是context的保存和切换。</p>
-<p>这一个特点跟用yield语句实现的生成器很像，只不过这个时候是在调用生成器的程序与生成器内部程序之间相互跳转交错执行。</p>
-<p>实际上，python正是用yield语法来编写协程的。</p>
-<h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p><a href="http://www.liaoxuefeng.com/wiki/0014316089557264a6b348958f449949df42a6d3a2e542c000/001432090171191d05dae6e129940518d1d6cf6eeaaa969000" target="_blank" rel="external">协程 - 廖雪峰的官方网站</a><br><a href="http://www.tuicool.com/articles/jeqMjq3" target="_blank" rel="external">从0到1，Python异步编程的演进之路</a></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;h2 id=&quot;前面的话&quot;&gt;&lt;a href=&quot;#前面的话&quot; class=&quot;headerlink&quot; title=&quot;前面的话&quot;&gt;&lt;/a&gt;前面的话&lt;/h2&gt;&lt;p&gt;这个星期在研究Scrapy media Pipeline源码 (&lt;a href=&quot;https://github.com/sc
-    
-    </summary>
-    
-      <category term="Python" scheme="https://resettingmq.github.io/categories/Python/"/>
-    
-    
-      <category term="coroutine" scheme="https://resettingmq.github.io/tags/coroutine/"/>
-    
-      <category term="异步" scheme="https://resettingmq.github.io/tags/%E5%BC%82%E6%AD%A5/"/>
     
   </entry>
   

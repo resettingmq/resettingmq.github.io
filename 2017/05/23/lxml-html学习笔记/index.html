@@ -1,0 +1,38 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><title> lxml.html学习笔记 · Keep mind occupied</title><meta name="description" content="lxml.html学习笔记 - resettingmq"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.png"><link rel="stylesheet" href="/css/apollo.css"><link rel="search" type="application/opensearchdescription+xml" href="https://resettingmq.github.io/atom.xml" title="Keep mind occupied"></head><body><div class="wrap"><header><a href="/" class="logo-link"><img src="/favicon.png" alt="logo"></a><ul class="nav nav-list"><li class="nav-list-item"><a href="/" target="_self" class="nav-list-link">BLOG</a></li><li class="nav-list-item"><a href="/archives/" target="_self" class="nav-list-link">ARCHIVE</a></li></ul></header><main class="container"><div class="post"><article class="post-block"><h1 class="post-title">lxml.html学习笔记</h1><div class="post-info">2017年5月23日</div><div class="post-content"><p>虽然Scrapy中采用了lxml作为xml/html的解析器，能够方便的解析xml/html文档树，但是在学习爬虫的时候，仍有时希望跳出Scrapy框架，写一些简单的爬虫或者对页面结构的测试。这个时候，就需要BetifulSoup/lxml/正则表达式这些工具了。</p>
+<p>这里简单的记录一下lxml.html库的api。</p>
+<h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>lxml.html库建立在lxml的HTML parser的基础之上，针对HTML元素提供了一组特殊的Element API，以及一些实用的Utilities。</p>
+<h2 id="生成html文档对象"><a href="#生成html文档对象" class="headerlink" title="生成html文档对象"></a>生成html文档对象</h2><p>HTML文档以及其中的元素在经过解析后，表示为一个<a href="http://lxml.de/api/index.html" target="_blank" rel="external"><code>lxml.html.HtmlElement</code></a>对象。</p>
+<p>有以下的方法能够通过字符串或者文件对象，用来创建HTML文档或者元素对象。</p>
+<ul>
+<li><p><code>parse(filename_url_or_file)</code></p>
+<p>  从文件对象中解析HTML文档或元素。</p>
+</li>
+<li><p><code>document_fromstring(string)</code></p>
+<p>  从字符串参数中解析HTML文档。</p>
+<p>  返回的结果一定是一个合法的HTML文档，也就是说最外层元素标签为<code>&lt;html&gt;&lt;/html&gt;</code>，并且具有一对<code>&lt;body&gt;&lt;/body&gt;</code>元素标签和一对可选的<code>&lt;head&gt;&lt;/head&gt;</code>标签。</p>
+</li>
+<li><p><code>fragment_fromstring(string, create_parent=False)</code></p>
+<p>  从字符串参数中解析出<strong>一个</strong>HTML元素。</p>
+<p>  在指定了<code>create_parent</code>参数的情况下，解析结果的外层会由该参数指定的元素标签包裹。</p>
+</li>
+<li><p><code>fragmens_fromstring(string)</code></p>
+<p>  返回一个元素列表。</p>
+</li>
+<li><p><code>fromstring(string)</code></p>
+<p>  根据字符串参数内容判断，采用<code>document_fromstring</code>或者<code>fragment_fromstring</code>来解析字符串参数，返回一个HTML文档或者一个HTML元素。</p>
+</li>
+</ul>
+<h2 id="lxml-html-HtmlElement-的属性与方法"><a href="#lxml-html-HtmlElement-的属性与方法" class="headerlink" title="lxml.html.HtmlElement 的属性与方法"></a><code>lxml.html.HtmlElement</code> 的属性与方法</h2><p><code>lxml.html.HtmlElement</code>继承自<a href="http://lxml.de/api/lxml.etree.ElementBase-class.html" target="_blank" rel="external"><code>lxml.etree.ElementBase</code></a>和<a href="http://lxml.de/api/lxml.html.HtmlMixin-class.html" target="_blank" rel="external"><code>lxml.html.HtmlMixin</code></a>，所以<code>HtmlElement</code>对象中包含了一些修改HTML文档以及元素的方法。<br>这里仅介绍一些常用的爬虫相关的属性以及元素查询方法。</p>
+<ul>
+<li><code>find_class(class_name)</code></li>
+<li><code>find_rel_links(rel)</code></li>
+<li><code>get_element_by_id(id, default=None)</code></li>
+<li><code>text_content()</code></li>
+<li><code>cssselect(expr)</code></li>
+<li><code>xpath(expr)</code></li>
+</ul>
+<hr>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li><a href="http://lxml.de/lxmlhtml.html" target="_blank" rel="external">lxml.html Documentation</a></li>
+</ul>
+</div></article></div></main><footer><div class="paginator"><a href="/2017/05/27/flask分析-import-name/" class="next">下一篇</a></div><div class="copyright"><p>© 2015 - 2017 <a href="https://resettingmq.github.io">resettingmq</a>, powered by <a href="https://hexo.io/" target="_blank">Hexo</a> and <a href="https://github.com/pinggod/hexo-theme-apollo" target="_blank">hexo-theme-apollo</a>.</p></div></footer></div><script async src="//cdn.bootcss.com/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML" integrity="sha384-crwIf/BuaWM9rM65iM+dWFldgQ1Un8jWZMuh3puxb8TOY9+linwLoI7ZHZT+aekW" crossorigin="anonymous"></script><script>(function(b,o,i,l,e,r){b.GoogleAnalyticsObject=l;b[l]||(b[l]=function(){(b[l].q=b[l].q||[]).push(arguments)});b[l].l=+new Date;e=o.createElement(i);r=o.getElementsByTagName(i)[0];e.src='//www.google-analytics.com/analytics.js';r.parentNode.insertBefore(e,r)}(window,document,'script','ga'));ga('create',"UA-65933410-1",'auto');ga('send','pageview');</script></body></html>
